@@ -1,12 +1,102 @@
-from models import PTORequest, TeamMember, Manager
+from models import PTORequest, TeamMember, Manager, Position
 from database import db
 from email_service import EmailService
+from datetime import datetime
 
 class PTOTrackerSystem:
     """Main system class for managing PTO requests"""
     
     def __init__(self):
         self.email_service = EmailService()
+
+    def get_staff_directory(self):
+        """Dynamic staff directory from database"""
+        staff_directory = {'clinical': {}, 'admin': {}}
+        
+        # Get all team members from database
+        team_members = TeamMember.query.join(Position).all()
+        
+        for member in team_members:
+            team = member.team
+            position = member.position.name
+            
+            # Initialize team if not exists
+            if team not in staff_directory:
+                staff_directory[team] = {}
+                
+            # Initialize position if not exists
+            if position not in staff_directory[team]:
+                staff_directory[team][position] = []
+                
+            # Add member to directory
+            staff_directory[team][position].append({
+                'name': member.name,
+                'email': member.email
+            })
+        
+        return staff_directory
+
+    def add_employee(self, employee_data):
+        """Add a new employee"""
+        position = Position.query.filter_by(name=employee_data['position']).first()
+        if not position:
+            raise ValueError(f"Invalid position: {employee_data['position']}")
+
+        existing_employee = TeamMember.query.filter_by(email=employee_data['email']).first()
+        if existing_employee:
+            raise ValueError("Employee with this email already exists.")
+
+        new_employee = TeamMember(
+            name=employee_data['name'],
+            email=employee_data['email'],
+            position_id=position.id,
+            pto_balance_hours=employee_data.get('pto_balance', 60.0)
+        )
+
+        if 'pto_refresh_date' in employee_data and employee_data['pto_refresh_date']:
+            new_employee.pto_refresh_date = datetime.strptime(employee_data['pto_refresh_date'], '%Y-%m-%d').date()
+
+        db.session.add(new_employee)
+        db.session.commit()
+        return new_employee
+
+    def edit_employee(self, employee_id, employee_data):
+        """Edit an existing employee"""
+        employee = TeamMember.query.get_or_404(employee_id)
+
+        position = Position.query.filter_by(name=employee_data['position']).first()
+        if not position:
+            raise ValueError(f"Invalid position: {employee_data['position']}")
+
+        employee.name = employee_data['name']
+        employee.email = employee_data['email']
+        employee.position_id = position.id
+        employee.pto_balance_hours = float(employee_data.get('pto_balance', employee.pto_balance_hours))
+
+        if 'pto_refresh_date' in employee_data and employee_data['pto_refresh_date']:
+            employee.pto_refresh_date = datetime.strptime(employee_data['pto_refresh_date'], '%Y-%m-%d').date()
+        else:
+            employee.pto_refresh_date = None
+
+        db.session.commit()
+        return employee
+
+    def delete_employee(self, employee_id):
+        """Delete an employee"""
+        employee = TeamMember.query.get_or_404(employee_id)
+        has_requests = PTORequest.query.filter_by(member_id=employee.id).count() > 0
+
+        if has_requests:
+            # Soft delete
+            employee.name = f"[INACTIVE] {employee.name}"
+            employee.email = f"inactive_{employee.id}@{employee.email}"
+            db.session.commit()
+            return f'Employee marked as inactive (has historical PTO records).'
+        else:
+            # Hard delete
+            db.session.delete(employee)
+            db.session.commit()
+            return 'Employee deleted successfully!'
     
     def add_request(self, member_data, pto_data):
         """Add a new PTO request"""

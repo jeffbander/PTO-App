@@ -1,9 +1,8 @@
-from flask import render_template, request, redirect, url_for, flash, jsonify, session
-from app import app
+from flask import render_template, request, redirect, url_for, flash, jsonify, session, current_app
 from database import db
-from models import PTORequest, TeamMember, Manager, User, PendingEmployee
+from models import PTORequest, TeamMember, Manager, User, PendingEmployee, Position
 from pto_system import PTOTrackerSystem
-from auth import login_required, authenticate_user, login_user, logout_user, get_current_user
+from auth import roles_required, authenticate_user, login_user, logout_user, get_current_user
 from email_service import send_submission_email
 from datetime import datetime
 
@@ -11,42 +10,37 @@ from datetime import datetime
 pto_system = PTOTrackerSystem()
 
 def get_staff_directory():
-    """Dynamic staff directory from database"""
-    staff_directory = {'clinical': {}, 'admin': {}}
-    
-    # Get all team members from database
-    team_members = TeamMember.query.all()
-    
-    for member in team_members:
-        team = member.team
-        position = member.position
-        
-        # Initialize team if not exists
-        if team not in staff_directory:
-            staff_directory[team] = {}
-            
-        # Initialize position if not exists
-        if position not in staff_directory[team]:
-            staff_directory[team][position] = []
-            
-        # Add member to directory
-        staff_directory[team][position].append({
-            'name': member.name,
-            'email': member.email
-        })
-    
-    return staff_directory
+    """Get current staff directory"""
+    from pto_system import PTOTrackerSystem
+    pto_sys = PTOTrackerSystem()
+    return pto_sys.get_staff_directory()
 
-@app.route('/')
-def index():
-    """Main page for submitting PTO requests"""
-    staff_directory = get_staff_directory()
-    return render_template('index.html', staff_directory=staff_directory)
+def register_routes(app):
 
-@app.route('/api/staff-directory')
-def api_staff_directory():
-    """API endpoint to get current staff directory"""
-    return jsonify(get_staff_directory())
+    @app.route('/')
+    def index():
+        """Main page for submitting PTO requests"""
+        staff_directory = pto_system.get_staff_directory()
+        return render_template('index.html', staff_directory=staff_directory)
+
+    @app.route('/index.html')
+    def index_html():
+        return render_template('index.html')
+
+    @app.route('/api/staff-directory')
+    def api_staff_directory():
+        """API endpoint to get current staff directory"""
+        return jsonify(get_staff_directory())
+
+    @app.route('/api/positions')
+    def api_positions():
+        """API endpoint to get all available positions"""
+        positions = {}
+        for p in Position.query.all():
+            if p.team not in positions:
+                positions[p.team] = []
+            positions[p.team].append(p.name)
+        return jsonify(positions)
 
 @app.route('/submit_request', methods=['POST'])
 def submit_request():
@@ -253,61 +247,31 @@ def logout():
     return redirect(url_for('index'))
 
 @app.route('/dashboard')
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def dashboard():
     """Redirect to appropriate dashboard based on user role"""
     user_role = session.get('user_role')
     if user_role == 'admin':
-        return redirect(url_for('admin_dashboard'))
+        requests = pto_system.get_requests_by_team('admin')
+        return render_template('dashboard_admin.html', requests=requests)
     elif user_role == 'clinical':
-        return redirect(url_for('clinical_dashboard'))
+        requests = pto_system.get_requests_by_team('clinical')
+        return render_template('dashboard_clinical.html', requests=requests)
     elif user_role == 'superadmin':
-        return redirect(url_for('superadmin_dashboard'))
+        requests = pto_system.get_all_requests()
+        team_members = TeamMember.query.all()
+        return render_template('dashboard_superadmin.html', requests=requests, team_members=team_members)
     elif user_role == 'moa_supervisor':
-        return redirect(url_for('moa_supervisor_dashboard'))
+        requests = PTORequest.query.join(TeamMember).join(Position).filter(Position.name.contains('MOA')).all()
+        return render_template('dashboard_moa_supervisor.html', requests=requests)
     elif user_role == 'echo_supervisor':
-        return redirect(url_for('echo_supervisor_dashboard'))
+        requests = PTORequest.query.join(TeamMember).join(Position).filter(Position.name.contains('Echo')).all()
+        return render_template('dashboard_echo_supervisor.html', requests=requests)
     else:
         return redirect(url_for('index'))
 
-@app.route('/admin_dashboard')
-@login_required(['admin'])
-def admin_dashboard():
-    """Admin manager dashboard"""
-    requests = pto_system.get_requests_by_team('admin')
-    return render_template('dashboard_admin.html', requests=requests)
-
-@app.route('/clinical_dashboard')
-@login_required(['clinical'])
-def clinical_dashboard():
-    """Clinical manager dashboard"""
-    requests = pto_system.get_requests_by_team('clinical')
-    return render_template('dashboard_clinical.html', requests=requests)
-
-@app.route('/superadmin_dashboard')
-@login_required(['superadmin'])
-def superadmin_dashboard():
-    """Super admin dashboard"""
-    requests = pto_system.get_all_requests()
-    team_members = TeamMember.query.all()
-    return render_template('dashboard_superadmin.html', requests=requests, team_members=team_members)
-
-@app.route('/moa_supervisor_dashboard')
-@login_required(['moa_supervisor'])
-def moa_supervisor_dashboard():
-    """MOA supervisor dashboard"""
-    requests = PTORequest.query.join(TeamMember).filter(TeamMember.position.contains('MOA')).all()
-    return render_template('dashboard_moa_supervisor.html', requests=requests)
-
-@app.route('/echo_supervisor_dashboard')
-@login_required(['echo_supervisor'])
-def echo_supervisor_dashboard():
-    """Echo tech supervisor dashboard"""
-    requests = PTORequest.query.join(TeamMember).filter(TeamMember.position.contains('Echo')).all()
-    return render_template('dashboard_echo_supervisor.html', requests=requests)
-
 @app.route('/approve_request/<int:request_id>')
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def approve_request(request_id):
     """Approve a PTO request"""
     current_user = get_current_user()
@@ -318,7 +282,7 @@ def approve_request(request_id):
     return redirect(url_for('dashboard'))
 
 @app.route('/deny_request/<int:request_id>', methods=['POST'])
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def deny_request(request_id):
     """Deny a PTO request"""
     denial_reason = request.form.get('denial_reason', '')
@@ -332,7 +296,7 @@ def deny_request(request_id):
 
 # Employee Management Routes
 @app.route('/employees')
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def employees():
     """Employee management page"""
     current_user = get_current_user()
@@ -372,49 +336,25 @@ def employees():
     return render_template('employees.html', team_members=team_members, stats=stats)
 
 @app.route('/employee/add', methods=['GET', 'POST'])
-@login_required(['admin', 'clinical', 'superadmin'])
+@roles_required('admin', 'clinical', 'superadmin')
 def add_employee():
     """Add new employee"""
     if request.method == 'POST':
         try:
-            from datetime import datetime
-            name = request.form.get('name')
-            email = request.form.get('email')
-            team = request.form.get('team')
-            position = request.form.get('position')
-            pto_balance = float(request.form.get('pto_balance', 60.0))
-            
-            # Validate required fields
-            if not all([name, email, team, position]):
-                flash('Please fill in all required fields.', 'error')
-                return render_template('add_employee.html')
-            
-            # Check if email already exists
-            existing_employee = TeamMember.query.filter_by(email=email).first()
-            if existing_employee:
-                flash('Employee with this email already exists.', 'error')
-                return render_template('add_employee.html')
-            
-            # Create new employee
-            new_employee = TeamMember(
-                name=name,
-                email=email,
-                team=team,
-                position=position,
-                pto_balance_hours=pto_balance
-            )
-            
-            # Handle PTO refresh date
-            refresh_date_str = request.form.get('pto_refresh_date')
-            if refresh_date_str:
-                new_employee.pto_refresh_date = datetime.strptime(refresh_date_str, '%Y-%m-%d').date()
-            
-            db.session.add(new_employee)
-            db.session.commit()
-            
-            flash(f'Employee {name} added successfully!', 'success')
+            employee_data = {
+                'name': request.form.get('name'),
+                'email': request.form.get('email'),
+                'position': request.form.get('position'),
+                'pto_balance': float(request.form.get('pto_balance', 60.0)),
+                'pto_refresh_date': request.form.get('pto_refresh_date')
+            }
+            pto_system.add_employee(employee_data)
+            flash(f'Employee {employee_data["name"]} added successfully!', 'success')
             return redirect(url_for('employees'))
             
+        except ValueError as e:
+            flash(str(e), 'error')
+            return render_template('add_employee.html')
         except Exception as e:
             flash(f'Error adding employee: {str(e)}', 'error')
             return render_template('add_employee.html')
@@ -422,7 +362,7 @@ def add_employee():
     return render_template('add_employee.html')
 
 @app.route('/employee/edit/<int:employee_id>', methods=['GET', 'POST'])
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def edit_employee(employee_id):
     """Edit employee information"""
     employee = TeamMember.query.get_or_404(employee_id)
@@ -436,9 +376,9 @@ def edit_employee(employee_id):
         can_edit = True
     elif current_user.role == 'clinical' and employee.team == 'clinical':
         can_edit = True
-    elif current_user.role == 'moa_supervisor' and 'MOA' in employee.position:
+    elif current_user.role == 'moa_supervisor' and 'MOA' in employee.position.name:
         can_edit = True
-    elif current_user.role == 'echo_supervisor' and 'Echo' in employee.position:
+    elif current_user.role == 'echo_supervisor' and 'Echo' in employee.position.name:
         can_edit = True
     
     if not can_edit:
@@ -447,32 +387,28 @@ def edit_employee(employee_id):
     
     if request.method == 'POST':
         try:
-            from datetime import datetime
-            employee.name = request.form.get('name')
-            employee.email = request.form.get('email')
-            employee.team = request.form.get('team')
-            employee.position = request.form.get('position')
-            employee.pto_balance_hours = float(request.form.get('pto_balance', employee.pto_balance_hours))
-            
-            # Handle PTO refresh date
-            refresh_date_str = request.form.get('pto_refresh_date')
-            if refresh_date_str:
-                employee.pto_refresh_date = datetime.strptime(refresh_date_str, '%Y-%m-%d').date()
-            else:
-                employee.pto_refresh_date = None
-            
-            db.session.commit()
-            
-            flash(f'Employee {employee.name} updated successfully!', 'success')
+            employee_data = {
+                'name': request.form.get('name'),
+                'email': request.form.get('email'),
+                'position': request.form.get('position'),
+                'pto_balance': float(request.form.get('pto_balance', employee.pto_balance_hours)),
+                'pto_refresh_date': request.form.get('pto_refresh_date')
+            }
+            pto_system.edit_employee(employee_id, employee_data)
+            flash(f'Employee {employee_data["name"]} updated successfully!', 'success')
             return redirect(url_for('employees'))
             
+        except ValueError as e:
+            flash(str(e), 'error')
+            return render_template('edit_employee.html', employee=employee)
         except Exception as e:
             flash(f'Error updating employee: {str(e)}', 'error')
+            return render_template('edit_employee.html', employee=employee)
     
     return render_template('edit_employee.html', employee=employee)
 
 @app.route('/employee/<int:employee_id>')
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def employee_detail(employee_id):
     """Employee detail page with PTO history"""
     employee = TeamMember.query.get_or_404(employee_id)
@@ -534,11 +470,11 @@ def employee_detail(employee_id):
     return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats)
 
 @app.route('/employee/delete/<int:employee_id>', methods=['POST'])
-@login_required(['admin', 'clinical', 'superadmin'])
+@roles_required('admin', 'clinical', 'superadmin')
 def delete_employee(employee_id):
     """Delete employee (soft delete - keep for historical records)"""
-    employee = TeamMember.query.get_or_404(employee_id)
     current_user = get_current_user()
+    employee = TeamMember.query.get_or_404(employee_id)
     
     # Check permissions
     can_delete = False
@@ -554,20 +490,8 @@ def delete_employee(employee_id):
         return redirect(url_for('employees'))
     
     try:
-        # Check if employee has any PTO requests
-        has_requests = PTORequest.query.filter_by(member_id=employee.id).count() > 0
-        
-        if has_requests:
-            # Soft delete - mark as inactive instead of deleting
-            employee.name = f"[INACTIVE] {employee.name}"
-            employee.email = f"inactive_{employee.id}@{employee.email}"
-            db.session.commit()
-            flash(f'Employee marked as inactive (has historical PTO records).', 'success')
-        else:
-            # Hard delete if no requests
-            db.session.delete(employee)
-            db.session.commit()
-            flash('Employee deleted successfully!', 'success')
+        message = pto_system.delete_employee(employee_id)
+        flash(message, 'success')
             
     except Exception as e:
         flash(f'Error deleting employee: {str(e)}', 'error')
@@ -575,7 +499,7 @@ def delete_employee(employee_id):
     return redirect(url_for('employees'))
 
 @app.route('/pending_employees')
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def pending_employees():
     """View pending employee registrations"""
     current_user = get_current_user()
@@ -596,7 +520,7 @@ def pending_employees():
     return render_template('pending_employees.html', pending_employees=pending_list, total_pending=all_pending)
 
 @app.route('/approve_employee/<int:employee_id>')
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def approve_employee(employee_id):
     """Approve a pending employee registration"""
     pending_employee = PendingEmployee.query.get_or_404(employee_id)
@@ -650,7 +574,7 @@ def approve_employee(employee_id):
     return redirect(url_for('pending_employees'))
 
 @app.route('/deny_employee/<int:employee_id>', methods=['POST'])
-@login_required()
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
 def deny_employee(employee_id):
     """Deny a pending employee registration"""
     pending_employee = PendingEmployee.query.get_or_404(employee_id)

@@ -10,10 +10,18 @@
     "test:ui": "playwright test --ui",
     "show-report": "playwright show-report"
   },
-  "keywords": ["playwright", "testing", "pto", "flask"],
+  "keywords": [
+    "playwright",
+    "testing",
+    "pto",
+    "flask"
+  ],
   "author": "MSW CVI IT Team",
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.40.0"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
   }
 }

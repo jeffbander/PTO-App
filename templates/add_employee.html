@@ -61,19 +61,7 @@
                                 <i class="fas fa-briefcase me-1"></i>Position <span class="text-danger">*</span>
                             </label>
                             <select class="form-select" id="position" name="position" required>
-                                <option value="">Select Position</option>
-                                <!-- Clinical positions -->
-                                <optgroup label="Clinical Team">
-                                    <option value="APP">Advanced Practice Provider (APP)</option>
-                                    <option value="CVI RNs">CVI Registered Nurse</option>
-                                    <option value="CVI MOAs">CVI Medical Office Assistant</option>
-                                    <option value="CVI Echo Techs">CVI Echo Technician</option>
-                                </optgroup>
-                                <!-- Admin positions -->
-                                <optgroup label="Administrative Team">
-                                    <option value="Front Desk/Admin">Front Desk/Admin</option>
-                                    <option value="CT Desk">CT Desk</option>
-                                </optgroup>
+                                <option value="">Select team first</option>
                             </select>
                         </div>
                     </div>
@@ -157,22 +145,23 @@ document.getElementById('pto_balance').addEventListener('input', function() {
 // Position filtering based on team selection
 document.getElementById('team').addEventListener('change', function() {
     const positionSelect = document.getElementById('position');
-    const clinicalOptions = positionSelect.querySelectorAll('optgroup[label="Clinical Team"] option');
-    const adminOptions = positionSelect.querySelectorAll('optgroup[label="Administrative Team"] option');
-    
-    // Reset selection
-    positionSelect.value = '';
-    
-    // Show/hide options based on team
-    if (this.value === 'clinical') {
-        clinicalOptions.forEach(option => option.style.display = 'block');
-        adminOptions.forEach(option => option.style.display = 'none');
-    } else if (this.value === 'admin') {
-        clinicalOptions.forEach(option => option.style.display = 'none');
-        adminOptions.forEach(option => option.style.display = 'block');
-    } else {
-        clinicalOptions.forEach(option => option.style.display = 'block');
-        adminOptions.forEach(option => option.style.display = 'block');
+    const selectedTeam = this.value;
+
+    // Clear previous options
+    positionSelect.innerHTML = '<option value="">Select Position</option>';
+
+    if (selectedTeam) {
+        fetch('/api/positions')
+            .then(response => response.json())
+            .then(data => {
+                const positions = data[selectedTeam] || [];
+                positions.forEach(position => {
+                    const option = document.createElement('option');
+                    option.value = position;
+                    option.textContent = position;
+                    positionSelect.appendChild(option);
+                });
+            });
     }
 });
 </script>

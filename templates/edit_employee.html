@@ -76,19 +76,7 @@
                                 <i class="fas fa-briefcase me-1"></i>Position <span class="text-danger">*</span>
                             </label>
                             <select class="form-select" id="position" name="position" required>
-                                <option value="">Select Position</option>
-                                <!-- Clinical positions -->
-                                <optgroup label="Clinical Team">
-                                    <option value="APP" {{ 'selected' if employee.position == 'APP' else '' }}>Advanced Practice Provider (APP)</option>
-                                    <option value="CVI RNs" {{ 'selected' if employee.position == 'CVI RNs' else '' }}>CVI Registered Nurse</option>
-                                    <option value="CVI MOAs" {{ 'selected' if employee.position == 'CVI MOAs' else '' }}>CVI Medical Office Assistant</option>
-                                    <option value="CVI Echo Techs" {{ 'selected' if employee.position == 'CVI Echo Techs' else '' }}>CVI Echo Technician</option>
-                                </optgroup>
-                                <!-- Admin positions -->
-                                <optgroup label="Administrative Team">
-                                    <option value="Front Desk/Admin" {{ 'selected' if employee.position == 'Front Desk/Admin' else '' }}>Front Desk/Admin</option>
-                                    <option value="CT Desk" {{ 'selected' if employee.position == 'CT Desk' else '' }}>CT Desk</option>
-                                </optgroup>
+                                <option value="">Select team first</option>
                             </select>
                         </div>
                     </div>
@@ -260,21 +248,35 @@ document.getElementById('pto_balance').addEventListener('input', function() {
 // Position filtering based on team selection
 document.getElementById('team').addEventListener('change', function() {
     const positionSelect = document.getElementById('position');
-    const clinicalOptions = positionSelect.querySelectorAll('optgroup[label="Clinical Team"] option');
-    const adminOptions = positionSelect.querySelectorAll('optgroup[label="Administrative Team"] option');
-    
-    // Show/hide options based on team
-    if (this.value === 'clinical') {
-        clinicalOptions.forEach(option => option.style.display = 'block');
-        adminOptions.forEach(option => option.style.display = 'none');
-    } else if (this.value === 'admin') {
-        clinicalOptions.forEach(option => option.style.display = 'none');
-        adminOptions.forEach(option => option.style.display = 'block');
-    } else {
-        clinicalOptions.forEach(option => option.style.display = 'block');
-        adminOptions.forEach(option => option.style.display = 'block');
+    const selectedTeam = this.value;
+    const currentPosition = "{{ employee.position }}";
+
+    // Clear previous options
+    positionSelect.innerHTML = '<option value="">Select Position</option>';
+
+    if (selectedTeam) {
+        fetch('/api/positions')
+            .then(response => response.json())
+            .then(data => {
+                const positions = data[selectedTeam] || [];
+                positions.forEach(position => {
+                    const option = document.createElement('option');
+                    option.value = position;
+                    option.textContent = position;
+                    if (position === currentPosition) {
+                        option.selected = true;
+                    }
+                    positionSelect.appendChild(option);
+                });
+            });
     }
 });
+
+// Trigger the change event on page load to populate the positions
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('team').dispatchEvent(new Event('change'));
+});
+</script>
 
 // PTO History modal function (reused from employees.html)
 function viewEmployeePTO(employeeId, employeeName) {

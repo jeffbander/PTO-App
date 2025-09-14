@@ -45,36 +45,39 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.name}>'
 
+class Position(db.Model):
+    __tablename__ = 'positions'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), unique=True, nullable=False)
+    team = Column(String(20), nullable=False)  # 'admin' or 'clinical'
+
+    def __repr__(self):
+        return f'<Position {self.name}>'
+
 class TeamMember(User):
     """Team member inherits from User"""
     __tablename__ = 'team_members'
     
     id = Column(Integer, ForeignKey('users.id'), primary_key=True)
-    team = Column(String(20), nullable=False)  # 'admin' or 'clinical'
-    position = Column(String(50), nullable=False)
+    position_id = Column(Integer, ForeignKey('positions.id'), nullable=False)
+    position = relationship("Position")
     
-    def __init__(self, name=None, email=None, team=None, position=None, **kwargs):
+    def __init__(self, name=None, email=None, position_id=None, **kwargs):
         super().__init__(name=name, email=email, **kwargs)
-        if team:
-            self.team = team
-        if position:
-            self.position = position
+        if position_id:
+            self.position_id = position_id
     
     # Relationship to PTO requests
     pto_requests = relationship("PTORequest", back_populates="member")
     
     @property
+    def team(self):
+        return self.position.team if self.position else None
+
+    @property
     def manager_team(self):
         """Determine which manager should handle this team member's requests"""
-        clinical_positions = ['MOA', 'Echo Tech', 'Vascular Tech', 'Nurse', 'APP']
-        admin_positions = ['Front Desk', '4th Floor', 'CT Desk']
-        
-        if self.position in clinical_positions:
-            return 'clinical'
-        elif self.position in admin_positions:
-            return 'admin'
-        else:
-            return self.team  # fallback to team
+        return self.team
     
     def __repr__(self):
         return f'<TeamMember {self.name} - {self.team}>'
@@ -103,18 +106,18 @@ class Manager(User):
         """Check if this manager can approve requests for a specific position"""
         if self.role == 'superadmin':
             return True
-        elif self.role == 'admin':
-            admin_positions = ['Front Desk/Admin', 'CT Desk', 'Echo Desk (4th Floor)', 'Authorization Team']
-            return position in admin_positions
-        elif self.role == 'clinical':
-            clinical_positions = ['APP', 'CVI RNs', 'Cardiac CT RNs', '4th Floor Echo RNs', 'CVI MOAs', 'CVI Echo Techs', '4th Floor Echo Techs', 'EKG Tech (4th Floor)', 'Cardiac CT Techs (4th Floor)', 'Nuclear Tech (CVI)', 'Vascular Tech (CVI)']
-            return position in clinical_positions
-        elif self.role == 'moa_supervisor':
-            moa_positions = ['CVI MOAs']
-            return position in moa_positions
-        elif self.role == 'echo_supervisor':
-            echo_positions = ['CVI Echo Techs', '4th Floor Echo Techs']
-            return position in echo_positions
+        
+        if not isinstance(position, Position):
+            return False
+
+        if self.role == 'admin' and position.team == 'admin':
+            return True
+        if self.role == 'clinical' and position.team == 'clinical':
+            return True
+        if self.role == 'moa_supervisor' and 'MOA' in position.name:
+            return True
+        if self.role == 'echo_supervisor' and 'Echo' in position.name:
+            return True
         return False
     
     def __repr__(self):
@@ -179,16 +182,10 @@ class PTORequest(db.Model):
     def duration_days(self):
         """Calculate duration in days"""
         try:
-            # Access the actual column values, not the Column objects
-            start_date_value = getattr(self, '_start_date', self.start_date) if hasattr(self.start_date, '__get__') else self.start_date
-            end_date_value = getattr(self, '_end_date', self.end_date) if hasattr(self.end_date, '__get__') else self.end_date
-            
-            if isinstance(start_date_value, str) and isinstance(end_date_value, str):
-                start = datetime.strptime(start_date_value, '%Y-%m-%d')
-                end = datetime.strptime(end_date_value, '%Y-%m-%d')
-                return (end - start).days + 1
-            return 1
-        except:
+            start = datetime.strptime(self.start_date, '%Y-%m-%d')
+            end = datetime.strptime(self.end_date, '%Y-%m-%d')
+            return (end - start).days + 1
+        except (ValueError, TypeError):
             return 1
     
     @property

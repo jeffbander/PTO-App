@@ -3,24 +3,18 @@ from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 from models import Manager
 
-def login_required(allowed_roles=None):
-    """Decorator to require login and optionally restrict by role"""
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if 'user_id' not in session:
-                flash('Please log in to access this page', 'error')
-                return redirect(url_for('login', next=request.url))
-            
-            if allowed_roles:
-                user_role = session.get('user_role')
-                if user_role not in allowed_roles:
-                    flash('You do not have permission to access this page', 'error')
-                    return redirect(url_for('not_authorized'))
-            
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
+def roles_required(*roles):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorated_view(*args, **kwargs):
+            if 'user_role' not in session:
+                return redirect(url_for('login'))
+            if session['user_role'] not in roles:
+                flash('You do not have permission to access this page.', 'error')
+                return redirect(url_for('not_authorized'))
+            return fn(*args, **kwargs)
+        return decorated_view
+    return wrapper
 
 def get_current_user():
     """Get the current logged-in user"""
