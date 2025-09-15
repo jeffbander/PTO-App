@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const now = new Date();
         const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
         
-        const upcomingEvents = events.filter(event => {
+        const upcomingEvents = filteredEvents.filter(event => {
             const eventDate = new Date(event.start);
             return eventDate >= now && eventDate <= nextWeek;
         }).sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -387,42 +387,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('positionFilter').value = '';
         applyFilters();
     });
-    
-    // Update populateUpcomingEvents to use filtered events
-    function populateUpcomingEvents() {
-        const now = new Date();
-        const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        
-        const upcomingEvents = filteredEvents.filter(event => {
-            const eventDate = new Date(event.start);
-            return eventDate >= now && eventDate <= nextWeek;
-        }).sort((a, b) => new Date(a.start) - new Date(b.start));
-        
-        const upcomingContainer = document.getElementById('upcomingEvents');
-        
-        if (upcomingEvents.length === 0) {
-            upcomingContainer.innerHTML = `
-                <div class="col-12">
-                    <p class="text-muted text-center">No upcoming PTO in the next 7 days</p>
-                </div>
-            `;
-            return;
-        }
-        
-        upcomingContainer.innerHTML = upcomingEvents.map(event => {
-            const startDate = new Date(event.start);
-            return `
-                <div class="col-md-6 mb-3">
-                    <div class="upcoming-event ${event.extendedProps.status}">
-                        <strong>${event.extendedProps.employee}</strong><br>
-                        <small class="text-muted">${event.extendedProps.type}</small><br>
-                        <small>${startDate.toLocaleDateString()} • ${event.extendedProps.duration}${event.extendedProps.is_partial_day ? '' : ' days'}</small><br>
-                        <span class="badge status-${event.extendedProps.status} mt-1">${event.extendedProps.status.charAt(0).toUpperCase() + event.extendedProps.status.slice(1)}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
 });
 </script>
 {% endblock %}

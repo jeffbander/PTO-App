@@ -81,6 +81,7 @@
                     <tr>
                         <th>Name</th>
                         <th>Email</th>
+                        <th>Phone</th>
                         <th>Team</th>
                         <th>Position</th>
                         <th>PTO Balance</th>
@@ -107,6 +108,7 @@
                             </div>
                         </td>
                         <td>{{ employee.email }}</td>
+                        <td>{{ employee.phone or '-' }}</td>
                         <td>
                             <span class="badge bg-{{ 'primary' if employee.team == 'clinical' else 'secondary' }}">
                                 {{ employee.team|title }}

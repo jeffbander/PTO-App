@@ -123,6 +123,92 @@ def initialize_database():
 
         db.session.commit()
 
+        # Add sample PTO requests for testing admin approval interface
+        from datetime import datetime, date, timedelta
+
+        sample_pto_requests = [
+            {
+                'employee_email': 'john.smith@mswcvi.com',
+                'start_date': '2025-09-18',  # Thursday
+                'end_date': '2025-09-23',    # Tuesday (includes weekend)
+                'pto_type': 'Vacation',
+                'reason': 'Long weekend vacation (Thu-Tue)',
+                'manager_team': 'admin'
+            },
+            {
+                'employee_email': 'sarah.johnson@mswcvi.com',
+                'start_date': '2025-11-27',  # Thursday (Thanksgiving)
+                'end_date': '2025-11-28',    # Friday (after Thanksgiving)
+                'pto_type': 'Personal',
+                'reason': 'Thanksgiving weekend',
+                'manager_team': 'admin'
+            },
+            {
+                'employee_email': 'lisa.rodriguez@mswcvi.com',
+                'start_date': '2025-12-24',  # Wednesday
+                'end_date': '2025-12-26',    # Friday (includes Christmas)
+                'pto_type': 'Vacation',
+                'reason': 'Christmas holiday period',
+                'manager_team': 'clinical'
+            },
+            {
+                'employee_email': 'john.smith@mswcvi.com',
+                'start_date': '2025-07-03',  # Thursday
+                'end_date': '2025-07-07',    # Monday (includes July 4th)
+                'pto_type': 'Personal',
+                'reason': 'July 4th extended weekend',
+                'manager_team': 'admin'
+            },
+            {
+                'employee_email': 'emily.davis@mswcvi.com',
+                'start_date': '2025-09-16',  # Tuesday
+                'end_date': '2025-09-16',    # Tuesday (single business day)
+                'pto_type': 'Personal',
+                'reason': 'Child school event',
+                'manager_team': 'clinical'
+            },
+            {
+                'employee_email': 'david.brown@mswcvi.com',
+                'start_date': '2025-05-26',  # Monday (Memorial Day)
+                'end_date': '2025-05-27',    # Tuesday
+                'pto_type': 'Vacation',
+                'reason': 'Memorial Day weekend',
+                'manager_team': 'clinical'
+            },
+            {
+                'employee_email': 'amanda.thompson@mswcvi.com',
+                'start_date': '2025-09-30',  # Tuesday
+                'end_date': '2025-09-30',    # Tuesday (single business day)
+                'pto_type': 'Sick',
+                'reason': 'Medical appointment',
+                'manager_team': 'clinical'
+            }
+        ]
+
+        for pto_data in sample_pto_requests:
+            # Find the team member by email
+            member = TeamMember.query.filter_by(email=pto_data['employee_email']).first()
+            if member:
+                # Check if request already exists
+                existing_request = PTORequest.query.filter_by(
+                    member_id=member.id,
+                    start_date=pto_data['start_date']
+                ).first()
+                if not existing_request:
+                    new_request = PTORequest(
+                        member_id=member.id,
+                        start_date=pto_data['start_date'],
+                        end_date=pto_data['end_date'],
+                        pto_type=pto_data['pto_type'],
+                        reason=pto_data['reason'],
+                        manager_team=pto_data['manager_team'],
+                        status='pending'
+                    )
+                    db.session.add(new_request)
+
+        db.session.commit()
+        print(f"✅ Database initialized with {len(sample_employees)} employees and {len(sample_pto_requests)} PTO requests")
+
 # Import and register routes
 from routes_simple import register_routes
 register_routes(app)

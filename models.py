@@ -10,6 +10,7 @@ class User(db.Model):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     email = Column(String(120), unique=True, nullable=False)
+    phone = Column(String(20), nullable=True)  # Phone number field
     pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours
     pto_refresh_date = Column(Date, default=datetime(2025, 1, 1).date())    # Annual refresh date
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -180,34 +181,68 @@ class PTORequest(db.Model):
     
     @property
     def duration_days(self):
-        """Calculate duration in days"""
+        """Calculate duration in business days (excludes weekends and holidays)"""
         try:
-            start = datetime.strptime(self.start_date, '%Y-%m-%d')
-            end = datetime.strptime(self.end_date, '%Y-%m-%d')
-            return (end - start).days + 1
-        except (ValueError, TypeError):
-            return 1
+            from business_days import calculate_pto_days
+            return calculate_pto_days(self.start_date, self.end_date)
+        except (ValueError, TypeError, ImportError):
+            # Fallback to calendar days if business_days module fails
+            try:
+                start = datetime.strptime(self.start_date, '%Y-%m-%d')
+                end = datetime.strptime(self.end_date, '%Y-%m-%d')
+                return (end - start).days + 1
+            except (ValueError, TypeError):
+                return 1
     
     @property
     def duration_hours(self):
-        """Calculate duration in hours (7.5 hours = 1 full day)"""
+        """Calculate duration in hours (7.5 hours = 1 business day)"""
         try:
             if self.is_partial_day and self.start_time and self.end_time:
                 # Calculate partial day hours
                 start_hour, start_min = map(int, self.start_time.split(':'))
                 end_hour, end_min = map(int, self.end_time.split(':'))
-                
+
                 start_minutes = start_hour * 60 + start_min
                 end_minutes = end_hour * 60 + end_min
-                
+
                 total_minutes = end_minutes - start_minutes
                 return round(total_minutes / 60, 2)
             else:
-                # Full day calculation: 7.5 hours per day
+                # Full day calculation: 7.5 hours per business day
                 return self.duration_days * 7.5
         except:
             return 7.5
-    
+
+    def get_pto_breakdown(self):
+        """Get detailed breakdown of PTO request including holidays and weekends"""
+        try:
+            from business_days import get_pto_breakdown
+            return get_pto_breakdown(self.start_date, self.end_date)
+        except (ImportError, ValueError, TypeError):
+            # Fallback breakdown
+            try:
+                start = datetime.strptime(self.start_date, '%Y-%m-%d')
+                end = datetime.strptime(self.end_date, '%Y-%m-%d')
+                total_days = (end - start).days + 1
+                return {
+                    'total_days': total_days,
+                    'business_days': total_days,  # Fallback assumes all are business days
+                    'weekend_days': 0,
+                    'holiday_days': 0,
+                    'holidays_list': [],
+                    'weekends_list': []
+                }
+            except (ValueError, TypeError):
+                return {
+                    'total_days': 1,
+                    'business_days': 1,
+                    'weekend_days': 0,
+                    'holiday_days': 0,
+                    'holidays_list': [],
+                    'weekends_list': []
+                }
+
     def __repr__(self):
         return f'<PTORequest {self.id} - {self.member.name if self.member else "Unknown"} - {self.status}>'
 
