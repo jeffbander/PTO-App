@@ -72,14 +72,34 @@ def register_routes(app):
             'denied': denied_requests
         }
 
-        return render_template('dashboard_admin.html', requests=pending_requests, stats=stats)
+        return render_template('dashboard_admin.html', requests=pending_requests, stats=stats, now=datetime.now)
 
     @app.route('/dashboard/clinical')
     @roles_required('clinical', 'superadmin')
     def clinical_dashboard():
         """Clinical dashboard"""
-        requests = pto_system.get_requests_by_team('clinical')
-        return render_template('dashboard_clinical.html', requests=requests)
+        # Get pending requests for clinical team (using manager_team field)
+        pending_requests = PTORequest.query.filter_by(status='pending', manager_team='clinical').all()
+
+        # Get approved requests this month for clinical team
+        from datetime import datetime, timedelta
+        current_month_start = datetime.now().replace(day=1)
+        approved_this_month = PTORequest.query.filter_by(status='approved', manager_team='clinical').filter(
+            PTORequest.updated_at >= current_month_start
+        ).count()
+
+        # Get total and denied counts
+        total_requests = PTORequest.query.filter_by(manager_team='clinical').count()
+        denied_requests = PTORequest.query.filter_by(status='denied', manager_team='clinical').count()
+
+        stats = {
+            'pending': len(pending_requests),
+            'approved_this_month': approved_this_month,
+            'total': total_requests,
+            'denied': denied_requests
+        }
+
+        return render_template('dashboard_clinical.html', requests=pending_requests, stats=stats, now=datetime.now)
 
     @app.route('/dashboard/superadmin')
     @roles_required('superadmin')
