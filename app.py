@@ -4,6 +4,10 @@ from flask import Flask, send_from_directory
 from werkzeug.middleware.proxy_fix import ProxyFix
 from database import db
 from models import User, TeamMember, PTORequest, Manager, Position
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -25,8 +29,8 @@ db.init_app(app)
 
 def initialize_database():
     with app.app_context():
-        # Drop all tables and recreate them
-        db.drop_all()
+        # Temporarily drop and recreate to update schema
+        db.drop_all()  # Enable to update schema
         db.create_all()
 
         # Initialize positions if they don't exist

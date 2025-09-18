@@ -4,10 +4,23 @@ from models import PTORequest, TeamMember, Manager, User, PendingEmployee, Posit
 from pto_system import PTOTrackerSystem
 from auth import roles_required, authenticate_user, login_user, logout_user, get_current_user
 from datetime import datetime
+import pytz
+from email_service import EmailService
+
+# Define Eastern timezone
+EASTERN = pytz.timezone('US/Eastern')
+
+def get_eastern_time():
+    """Get current time in Eastern timezone as naive datetime"""
+    eastern_now = datetime.now(EASTERN)
+    # Return naive datetime (no timezone info) but in Eastern time
+    return eastern_now.replace(tzinfo=None)
 
 def register_routes(app):
     # Initialize the PTO system
     pto_system = PTOTrackerSystem()
+    # Initialize the email service
+    email_service = EmailService()
 
     @app.route('/')
     def index():
@@ -54,9 +67,18 @@ def register_routes(app):
         # Get pending requests for admin team (using manager_team field)
         pending_requests = PTORequest.query.filter_by(status='pending', manager_team='admin').all()
 
+        # Get approved requests for admin team
+        approved_requests = PTORequest.query.filter_by(status='approved', manager_team='admin').all()
+
+        # Get in_progress requests for admin team
+        in_progress_requests = PTORequest.query.filter_by(status='in_progress', manager_team='admin').all()
+
+        # Get pending employee registrations for admin team
+        pending_employees = PendingEmployee.query.filter_by(status='pending', team='admin').all()
+
         # Get approved requests this month for admin team
         from datetime import datetime, timedelta
-        current_month_start = datetime.now().replace(day=1)
+        current_month_start = get_eastern_time().replace(day=1)
         approved_this_month = PTORequest.query.filter_by(status='approved', manager_team='admin').filter(
             PTORequest.updated_at >= current_month_start
         ).count()
@@ -67,12 +89,21 @@ def register_routes(app):
 
         stats = {
             'pending': len(pending_requests),
+            'pending_employees': len(pending_employees),
             'approved_this_month': approved_this_month,
             'total': total_requests,
-            'denied': denied_requests
+            'denied': denied_requests,
+            'in_progress': len(in_progress_requests),
+            'approved': len(approved_requests)
         }
 
-        return render_template('dashboard_admin.html', requests=pending_requests, stats=stats, now=datetime.now)
+        return render_template('dashboard_admin.html',
+                               requests=pending_requests,
+                               approved_requests=approved_requests,
+                               in_progress_requests=in_progress_requests,
+                               pending_employees=pending_employees,
+                               stats=stats,
+                               now=get_eastern_time)
 
     @app.route('/dashboard/clinical')
     @roles_required('clinical', 'superadmin')
@@ -81,9 +112,18 @@ def register_routes(app):
         # Get pending requests for clinical team (using manager_team field)
         pending_requests = PTORequest.query.filter_by(status='pending', manager_team='clinical').all()
 
+        # Get approved requests for clinical team
+        approved_requests = PTORequest.query.filter_by(status='approved', manager_team='clinical').all()
+
+        # Get in_progress requests for clinical team
+        in_progress_requests = PTORequest.query.filter_by(status='in_progress', manager_team='clinical').all()
+
+        # Get pending employee registrations for clinical team
+        pending_employees = PendingEmployee.query.filter_by(status='pending', team='clinical').all()
+
         # Get approved requests this month for clinical team
         from datetime import datetime, timedelta
-        current_month_start = datetime.now().replace(day=1)
+        current_month_start = get_eastern_time().replace(day=1)
         approved_this_month = PTORequest.query.filter_by(status='approved', manager_team='clinical').filter(
             PTORequest.updated_at >= current_month_start
         ).count()
@@ -94,12 +134,21 @@ def register_routes(app):
 
         stats = {
             'pending': len(pending_requests),
+            'pending_employees': len(pending_employees),
             'approved_this_month': approved_this_month,
             'total': total_requests,
-            'denied': denied_requests
+            'denied': denied_requests,
+            'in_progress': len(in_progress_requests),
+            'approved': len(approved_requests)
         }
 
-        return render_template('dashboard_clinical.html', requests=pending_requests, stats=stats, now=datetime.now)
+        return render_template('dashboard_clinical.html',
+                               requests=pending_requests,
+                               approved_requests=approved_requests,
+                               in_progress_requests=in_progress_requests,
+                               pending_employees=pending_employees,
+                               stats=stats,
+                               now=get_eastern_time)
 
     @app.route('/dashboard/superadmin')
     @roles_required('superadmin')
@@ -145,7 +194,52 @@ def register_routes(app):
     def submit_request():
         """Handle PTO request submission or new employee registration"""
         try:
-            # Get form data
+            # Check if this is a new employee registration
+            if request.form.get('name') == 'NOT_LISTED':
+                # Handle new employee registration
+                new_employee_name = request.form.get('new_employee_name')
+                new_employee_email = request.form.get('new_employee_email')
+                new_employee_team = request.form.get('new_employee_team')
+                new_employee_position = request.form.get('new_employee_position')
+                employee_notes = request.form.get('employee_notes', '')
+
+                # Validate required fields
+                if not all([new_employee_name, new_employee_email, new_employee_team, new_employee_position]):
+                    flash('Please fill in all required fields for employee registration.', 'error')
+                    return redirect(url_for('index'))
+
+                # Check if pending employee already exists
+                existing_pending = PendingEmployee.query.filter_by(email=new_employee_email).first()
+                if existing_pending and existing_pending.status == 'pending':
+                    flash('An employee registration with this email is already pending approval.', 'warning')
+                    return redirect(url_for('index'))
+
+                # Check if employee already exists
+                existing_employee = TeamMember.query.filter_by(email=new_employee_email).first()
+                if existing_employee:
+                    flash('An employee with this email already exists in the system.', 'error')
+                    return redirect(url_for('index'))
+
+                # Create pending employee record
+                pending_employee = PendingEmployee(
+                    name=new_employee_name,
+                    email=new_employee_email,
+                    team=new_employee_team,
+                    position=new_employee_position,
+                    status='pending'
+                )
+
+                # Add notes if provided
+                if employee_notes:
+                    pending_employee.denial_reason = f"Registration Notes: {employee_notes}"  # Using this field for notes
+
+                db.session.add(pending_employee)
+                db.session.commit()
+
+                flash(f'Employee registration for {new_employee_name} has been submitted and will be reviewed by the {new_employee_team} team manager.', 'success')
+                return redirect(url_for('index'))
+
+            # Regular PTO request handling
             team = request.form.get('team')
             position = request.form.get('position')
             name = request.form.get('name')
@@ -179,11 +273,18 @@ def register_routes(app):
             db.session.add(pto_request)
             db.session.commit()
 
+            # Send email notification for PTO submission
+            try:
+                email_service.send_submission_email(pto_request)
+            except Exception as e:
+                # Log error but don't fail the request
+                print(f"Failed to send submission email: {str(e)}")
+
             flash(f'PTO request submitted successfully for {name}!', 'success')
             return redirect(url_for('index'))
 
         except Exception as e:
-            flash(f'Error submitting PTO request: {str(e)}', 'error')
+            flash(f'Error submitting request: {str(e)}', 'error')
             return redirect(url_for('index'))
 
     @app.route('/calendar')
@@ -423,14 +524,23 @@ def register_routes(app):
     @app.route('/approve_request/<int:request_id>')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def approve_request(request_id):
-        """Approve a PTO request"""
+        """Approve a PTO request and move to in_progress"""
         try:
             pto_request = PTORequest.query.get_or_404(request_id)
-            pto_request.status = 'approved'
-            pto_request.updated_at = datetime.now()
+            pto_request.status = 'in_progress'  # Move to in_progress, not directly to approved
+            pto_request.approved_date = get_eastern_time()
+            pto_request.updated_at = get_eastern_time()
 
             db.session.commit()
-            flash(f'PTO request for {pto_request.member.name} has been approved!', 'success')
+
+            # Send email notification for approval
+            try:
+                email_service.send_approval_email(pto_request)
+            except Exception as e:
+                # Log error but don't fail the request
+                print(f"Failed to send approval email: {str(e)}")
+
+            flash(f'PTO request for {pto_request.member.name} has been approved and moved to In Progress!', 'success')
 
         except Exception as e:
             flash(f'Error approving request: {str(e)}', 'error')
@@ -446,14 +556,207 @@ def register_routes(app):
             denial_reason = request.form.get('denial_reason', 'No reason provided')
 
             pto_request.status = 'denied'
-            pto_request.updated_at = datetime.now()
+            pto_request.updated_at = get_eastern_time()
             pto_request.denial_reason = denial_reason
 
             db.session.commit()
+
+            # Send email notification for denial
+            try:
+                email_service.send_denial_email(pto_request, denial_reason)
+            except Exception as e:
+                # Log error but don't fail the request
+                print(f"Failed to send denial email: {str(e)}")
+
             flash(f'PTO request for {pto_request.member.name} has been denied.', 'warning')
 
         except Exception as e:
             flash(f'Error denying request: {str(e)}', 'error')
+
+        return redirect(url_for('dashboard'))
+
+    @app.route('/approve_employee/<int:employee_id>')
+    @roles_required('admin', 'clinical', 'superadmin')
+    def approve_employee(employee_id):
+        """Approve a pending employee registration"""
+        pending_employee = PendingEmployee.query.get_or_404(employee_id)
+        current_user = get_current_user()
+
+        # Check permissions
+        can_approve = False
+        if current_user.role == 'superadmin':
+            can_approve = True
+        elif current_user.role == 'admin' and pending_employee.team == 'admin':
+            can_approve = True
+        elif current_user.role == 'clinical' and pending_employee.team == 'clinical':
+            can_approve = True
+
+        if not can_approve:
+            flash('You do not have permission to approve this employee.', 'error')
+            return redirect(url_for('dashboard'))
+
+        # Find or create the position
+        position = Position.query.filter_by(name=pending_employee.position, team=pending_employee.team).first()
+        if not position:
+            position = Position(name=pending_employee.position, team=pending_employee.team)
+            db.session.add(position)
+            db.session.flush()
+
+        # Create the new team member
+        new_member = TeamMember(
+            name=pending_employee.name,
+            email=pending_employee.email,
+            position_id=position.id,
+            pto_balance_hours=60.0  # Default PTO balance
+        )
+
+        # Update pending employee status
+        pending_employee.status = 'approved'
+        pending_employee.approved_at = get_eastern_time()
+        pending_employee.approved_by_id = current_user.id
+
+        db.session.add(new_member)
+        db.session.commit()
+
+        flash(f'Employee {pending_employee.name} has been approved and added to the {pending_employee.team} team.', 'success')
+        return redirect(url_for('dashboard'))
+
+    @app.route('/deny_employee/<int:employee_id>', methods=['POST'])
+    @roles_required('admin', 'clinical', 'superadmin')
+    def deny_employee(employee_id):
+        """Deny a pending employee registration"""
+        pending_employee = PendingEmployee.query.get_or_404(employee_id)
+        current_user = get_current_user()
+
+        # Check permissions
+        can_deny = False
+        if current_user.role == 'superadmin':
+            can_deny = True
+        elif current_user.role == 'admin' and pending_employee.team == 'admin':
+            can_deny = True
+        elif current_user.role == 'clinical' and pending_employee.team == 'clinical':
+            can_deny = True
+
+        if not can_deny:
+            flash('You do not have permission to deny this employee.', 'error')
+            return redirect(url_for('dashboard'))
+
+        # Update pending employee status
+        pending_employee.status = 'denied'
+        pending_employee.approved_at = get_eastern_time()
+        pending_employee.approved_by_id = current_user.id
+
+        # Add denial reason if provided
+        denial_reason = request.form.get('denial_reason', '')
+        if denial_reason:
+            pending_employee.denial_reason = denial_reason
+
+        db.session.commit()
+
+        flash(f'Employee registration for {pending_employee.name} has been denied.', 'info')
+        return redirect(url_for('dashboard'))
+
+    @app.route('/workqueue/in_progress')
+    @roles_required('admin', 'clinical', 'superadmin')
+    def workqueue_in_progress():
+        """View in-progress PTO requests with checklist"""
+        current_user = get_current_user()
+
+        # Get in-progress requests based on role
+        if current_user.role == 'superadmin':
+            in_progress_requests = PTORequest.query.filter_by(status='in_progress').all()
+        elif current_user.role == 'admin':
+            in_progress_requests = PTORequest.query.filter_by(status='in_progress', manager_team='admin').all()
+        elif current_user.role == 'clinical':
+            in_progress_requests = PTORequest.query.filter_by(status='in_progress', manager_team='clinical').all()
+        else:
+            in_progress_requests = []
+
+        return render_template('workqueue_in_progress.html', requests=in_progress_requests, now=get_eastern_time)
+
+    @app.route('/workqueue/approved')
+    @roles_required('admin', 'clinical', 'superadmin')
+    def workqueue_approved():
+        """View approved PTO requests"""
+        current_user = get_current_user()
+
+        # Get approved requests based on role
+        if current_user.role == 'superadmin':
+            approved_requests = PTORequest.query.filter_by(status='approved').all()
+        elif current_user.role == 'admin':
+            approved_requests = PTORequest.query.filter_by(status='approved', manager_team='admin').all()
+        elif current_user.role == 'clinical':
+            approved_requests = PTORequest.query.filter_by(status='approved', manager_team='clinical').all()
+        else:
+            approved_requests = []
+
+        from datetime import datetime
+        return render_template('workqueue_approved.html', requests=approved_requests, now=get_eastern_time, datetime=datetime)
+
+    @app.route('/workqueue/completed')
+    @roles_required('admin', 'clinical', 'superadmin')
+    def workqueue_completed():
+        """View completed PTO requests"""
+        current_user = get_current_user()
+
+        # Get completed requests based on role
+        if current_user.role == 'superadmin':
+            completed_requests = PTORequest.query.filter_by(status='completed').all()
+        elif current_user.role == 'admin':
+            completed_requests = PTORequest.query.filter_by(status='completed', manager_team='admin').all()
+        elif current_user.role == 'clinical':
+            completed_requests = PTORequest.query.filter_by(status='completed', manager_team='clinical').all()
+        else:
+            completed_requests = []
+
+        return render_template('workqueue_completed.html', requests=completed_requests, now=get_eastern_time)
+
+    @app.route('/update_checklist/<int:request_id>', methods=['POST'])
+    @roles_required('admin', 'clinical', 'superadmin')
+    def update_checklist(request_id):
+        """Update checklist items for in-progress request"""
+        pto_request = PTORequest.query.get_or_404(request_id)
+
+        # Update checklist items
+        pto_request.timekeeping_entered = request.form.get('timekeeping_entered') == 'on'
+        pto_request.coverage_arranged = request.form.get('coverage_arranged') == 'on'
+
+        # If both are complete, move to approved status
+        if pto_request.timekeeping_entered and pto_request.coverage_arranged:
+            pto_request.status = 'approved'
+            flash(f'PTO request for {pto_request.member.name} is now fully approved!', 'success')
+
+            # No email sent when checklist is completed (per updated requirements)
+
+        pto_request.updated_at = get_eastern_time()
+        db.session.commit()
+
+        return redirect(url_for('workqueue_in_progress'))
+
+    @app.route('/check_and_complete_requests')
+    def check_and_complete_requests():
+        """Check for PTO requests that should be marked as completed based on end date"""
+        from datetime import datetime, date
+
+        today = date.today()
+
+        # Find approved requests where end date has passed
+        approved_requests = PTORequest.query.filter_by(status='approved').all()
+
+        completed_count = 0
+        for request in approved_requests:
+            try:
+                end_date = datetime.strptime(request.end_date, '%Y-%m-%d').date()
+                if end_date < today:
+                    request.status = 'completed'
+                    request.completed_date = get_eastern_time()
+                    completed_count += 1
+            except:
+                pass
+
+        if completed_count > 0:
+            db.session.commit()
+            flash(f'{completed_count} PTO requests marked as completed.', 'info')
 
         return redirect(url_for('dashboard'))
 

@@ -5,6 +5,16 @@ from pto_system import PTOTrackerSystem
 from auth import roles_required, authenticate_user, login_user, logout_user, get_current_user
 from email_service import send_submission_email
 from datetime import datetime
+import pytz
+
+# Define Eastern timezone
+EASTERN = pytz.timezone('US/Eastern')
+
+def get_eastern_time():
+    """Get current time in Eastern timezone as naive datetime"""
+    eastern_now = datetime.now(EASTERN)
+    # Return naive datetime (no timezone info) but in Eastern time
+    return eastern_now.replace(tzinfo=None)
 
 # Initialize the PTO system
 pto_system = PTOTrackerSystem()
@@ -555,7 +565,7 @@ def approve_employee(employee_id):
         
         # Update pending employee status
         pending_employee.status = 'approved'
-        pending_employee.approved_at = datetime.utcnow()
+        pending_employee.approved_at = get_eastern_time()
         pending_employee.approved_by_id = current_user.id
         
         # Save to database
@@ -603,7 +613,7 @@ def deny_employee(employee_id):
         # Update pending employee status
         pending_employee.status = 'denied'
         pending_employee.denial_reason = denial_reason
-        pending_employee.approved_at = datetime.utcnow()
+        pending_employee.approved_at = get_eastern_time()
         pending_employee.approved_by_id = current_user.id
         
         db.session.commit()

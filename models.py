@@ -1,7 +1,17 @@
 from database import db
 from datetime import datetime
+import pytz
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Boolean, Numeric, Date
 from sqlalchemy.orm import relationship
+
+# Define Eastern timezone
+EASTERN = pytz.timezone('US/Eastern')
+
+def get_eastern_time():
+    """Get current time in Eastern timezone as naive datetime"""
+    eastern_now = datetime.now(EASTERN)
+    # Return naive datetime (no timezone info) but in Eastern time
+    return eastern_now.replace(tzinfo=None)
 
 class User(db.Model):
     """Base user class"""
@@ -13,7 +23,7 @@ class User(db.Model):
     phone = Column(String(20), nullable=True)  # Phone number field
     pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours
     pto_refresh_date = Column(Date, default=datetime(2025, 1, 1).date())    # Annual refresh date
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_eastern_time)
     
     def __init__(self, name=None, email=None, **kwargs):
         super().__init__(**kwargs)
@@ -133,7 +143,7 @@ class PTORequest(db.Model):
     start_date = Column(String(10), nullable=False)  # YYYY-MM-DD format
     end_date = Column(String(10), nullable=False)
     pto_type = Column(String(50), nullable=False)  # vacation, sick, etc.
-    status = Column(String(20), default='pending')  # pending, approved, in_progress, denied, completed
+    status = Column(String(20), default='pending')  # pending, in_progress, approved, denied, completed
     manager_team = Column(String(20), nullable=False)  # which manager should handle this
     denial_reason = Column(Text)
     
@@ -144,17 +154,18 @@ class PTORequest(db.Model):
     reason = Column(Text)  # Optional reason (especially for partial days)
     
     # Workflow tracking
-    timekeeping_complete = Column(String(3), default='No')  # Yes/No
-    coverage_arranged = Column(String(3), default='No')  # Yes/No
-    workflow_complete = Column(String(3), default='No')  # Yes/No
+    timekeeping_entered = Column(Boolean, default=False)  # Checkbox for timekeeping
+    coverage_arranged = Column(Boolean, default=False)  # Checkbox for coverage
+    approved_date = Column(DateTime)  # When request was first approved
+    completed_date = Column(DateTime)  # When PTO period ended
     
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    submitted_at = Column(DateTime, default=datetime.utcnow)  # For tracking submission time
+    created_at = Column(DateTime, default=get_eastern_time)
+    updated_at = Column(DateTime, default=get_eastern_time, onupdate=get_eastern_time)
+    submitted_at = Column(DateTime, default=get_eastern_time)  # For tracking submission time
     
-    def __init__(self, member=None, start_date=None, end_date=None, pto_type=None, 
-                 manager_team=None, status='pending', coverage_arranged='No', 
-                 timekeeping_complete='No', workflow_complete='No', is_partial_day=False,
+    def __init__(self, member=None, start_date=None, end_date=None, pto_type=None,
+                 manager_team=None, status='pending', coverage_arranged=False,
+                 timekeeping_entered=False, is_partial_day=False,
                  start_time=None, end_time=None, reason=None, **kwargs):
         super().__init__(**kwargs)
         if member:
@@ -169,8 +180,7 @@ class PTORequest(db.Model):
             self.manager_team = manager_team
         self.status = status
         self.coverage_arranged = coverage_arranged
-        self.timekeeping_complete = timekeeping_complete
-        self.workflow_complete = workflow_complete
+        self.timekeeping_entered = timekeeping_entered
         self.is_partial_day = is_partial_day
         self.start_time = start_time
         self.end_time = end_time
@@ -256,7 +266,7 @@ class PendingEmployee(db.Model):
     team = Column(String(20), nullable=False)  # 'admin' or 'clinical'
     position = Column(String(50), nullable=False)
     status = Column(String(20), default='pending')  # pending, approved, denied
-    submitted_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, default=get_eastern_time)
     approved_at = Column(DateTime)
     approved_by_id = Column(Integer, ForeignKey('managers.id'))
     denial_reason = Column(Text)
