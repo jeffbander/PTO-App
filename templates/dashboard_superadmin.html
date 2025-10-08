@@ -30,6 +30,9 @@
                     <a href="{{ url_for('add_employee') }}" class="btn btn-success">
                         <i class="fas fa-user-plus me-2"></i>Add Employee
                     </a>
+                    <a href="{{ url_for('upload_csv') }}" class="btn btn-secondary">
+                        <i class="fas fa-file-csv me-2"></i>Upload Employee CSV
+                    </a>
                     <a href="{{ url_for('calendar') }}" class="btn btn-info">
                         <i class="fas fa-calendar me-2"></i>View Calendar
                     </a>
@@ -105,8 +108,22 @@
                             </span>
                         </td>
                         <td>{{ request.member.position if request.member else 'N/A' }}</td>
-                        <td>{{ request.start_date }}</td>
-                        <td>{{ request.end_date }}</td>
+                        <td>
+                            {{ request.start_date }}
+                            {% if request.is_partial_day and request.start_time %}
+                            <br><small class="text-muted">
+                                <i class="fas fa-clock"></i> {{ request.start_time }}
+                            </small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ request.end_date }}
+                            {% if request.is_partial_day and request.end_time %}
+                            <br><small class="text-muted">
+                                <i class="fas fa-clock"></i> {{ request.end_time }}
+                            </small>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if request.is_partial_day %}
                                 <span class="badge bg-info">Partial Day</span><br>

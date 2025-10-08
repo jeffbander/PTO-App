@@ -211,7 +211,7 @@ def initialize_database():
                     db.session.add(new_request)
 
         db.session.commit()
-        print(f"✅ Database initialized with {len(sample_employees)} employees and {len(sample_pto_requests)} PTO requests")
+        print(f"Database initialized with {len(sample_employees)} employees and {len(sample_pto_requests)} PTO requests")
 
 # Import and register routes
 from routes_simple import register_routes

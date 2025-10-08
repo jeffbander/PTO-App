@@ -43,4 +43,21 @@ clinical_cookies.txt
 
 # Environment variables
 .env
-.env.localgemini-cli/
+.env.local
+
+# Ngrok files
+ngrok.exe
+ngrok.zip
+*.exe
+*.zip
+
+# System files
+nul
+
+# Local scripts
+run_ngrok.bat
+start_ngrok.bat
+setup_ngrok.md
+
+# Gemini CLI
+gemini-cli/

@@ -62,10 +62,30 @@
                     <tr>
                         <td>#{{ request.id }}</td>
                         <td>{{ request.member.name if request.member else 'Unknown' }}</td>
-                        <td>{{ request.start_date }}</td>
-                        <td>{{ request.end_date }}</td>
+                        <td>
+                            {{ request.start_date }}
+                            {% if request.is_partial_day and request.start_time %}
+                            <br><small class="text-muted">
+                                <i class="fas fa-clock"></i> {{ request.start_time }}
+                            </small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ request.end_date }}
+                            {% if request.is_partial_day and request.end_time %}
+                            <br><small class="text-muted">
+                                <i class="fas fa-clock"></i> {{ request.end_time }}
+                            </small>
+                            {% endif %}
+                        </td>
                         <td>{{ request.pto_type }}</td>
-                        <td>{{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}</td>
+                        <td>
+                            {% if request.is_partial_day %}
+                                {{ request.duration_hours }} hrs
+                            {% else %}
+                                {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
+                            {% endif %}
+                        </td>
                         <td>
                             {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
                             <br><small class="text-muted">{{ request.submitted_at.strftime('%I:%M %p') if request.submitted_at else '' }}</small>

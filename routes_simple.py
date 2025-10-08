@@ -6,6 +6,9 @@ from auth import roles_required, authenticate_user, login_user, logout_user, get
 from datetime import datetime
 import pytz
 from email_service import EmailService
+import csv
+import io
+from werkzeug.utils import secure_filename
 
 # Define Eastern timezone
 EASTERN = pytz.timezone('US/Eastern')
@@ -410,7 +413,27 @@ def register_routes(app):
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def employees():
         """Employee management page"""
-        team_members = TeamMember.query.all()
+        user_role = session.get('user_role')
+
+        # Filter team members based on logged-in user's role
+        if user_role == 'superadmin':
+            # Superadmin sees all employees
+            team_members = TeamMember.query.all()
+        elif user_role == 'admin':
+            # Admin manager sees only admin team members
+            team_members = TeamMember.query.join(Position).filter(Position.team == 'admin').all()
+        elif user_role == 'clinical':
+            # Clinical manager sees only clinical team members
+            team_members = TeamMember.query.join(Position).filter(Position.team == 'clinical').all()
+        elif user_role == 'moa_supervisor':
+            # MOA Supervisor sees only MOA positions
+            team_members = TeamMember.query.join(Position).filter(Position.name.contains('MOA')).all()
+        elif user_role == 'echo_supervisor':
+            # Echo Supervisor sees only Echo positions
+            team_members = TeamMember.query.join(Position).filter(Position.name.contains('Echo')).all()
+        else:
+            team_members = []
+
         stats = {
             'total_employees': len(team_members),
             'total_pto_hours': sum(member.pto_balance_hours or 0 for member in team_members)
@@ -421,7 +444,21 @@ def register_routes(app):
     @roles_required('admin', 'clinical', 'superadmin')
     def pending_employees():
         """View pending employee registrations"""
-        pending_employees = PendingEmployee.query.all()
+        user_role = session.get('user_role')
+
+        # Filter pending employees based on logged-in user's role
+        if user_role == 'superadmin':
+            # Superadmin sees all pending employees
+            pending_employees = PendingEmployee.query.all()
+        elif user_role == 'admin':
+            # Admin manager sees only admin team pending employees
+            pending_employees = PendingEmployee.query.filter_by(team='admin').all()
+        elif user_role == 'clinical':
+            # Clinical manager sees only clinical team pending employees
+            pending_employees = PendingEmployee.query.filter_by(team='clinical').all()
+        else:
+            pending_employees = []
+
         total_pending = len(pending_employees)
         return render_template('pending_employees.html', pending_employees=pending_employees, total_pending=total_pending)
 
@@ -520,6 +557,151 @@ def register_routes(app):
             flash(f'Error deleting employee: {str(e)}', 'error')
 
         return redirect(url_for('employees'))
+
+    @app.route('/upload_csv', methods=['GET', 'POST'])
+    @roles_required('superadmin')
+    def upload_csv():
+        """Upload CSV file to bulk import/update employees (Superadmin only)"""
+        if request.method == 'POST':
+            # Check if file is present
+            if 'file' not in request.files:
+                flash('No file selected', 'error')
+                return redirect(request.url)
+
+            file = request.files['file']
+
+            # Check if file is selected
+            if file.filename == '':
+                flash('No file selected', 'error')
+                return redirect(request.url)
+
+            # Check file extension
+            if not file.filename.lower().endswith('.csv'):
+                flash('Please upload a CSV file', 'error')
+                return redirect(request.url)
+
+            try:
+                # Read CSV file
+                stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+                csv_reader = csv.DictReader(stream)
+
+                # Validate required columns
+                required_columns = ['name', 'email', 'position', 'team', 'pto_balance_hours', 'pto_refresh_date']
+                if not csv_reader.fieldnames:
+                    flash('CSV file is empty or invalid', 'error')
+                    return redirect(request.url)
+
+                missing_columns = [col for col in required_columns if col not in csv_reader.fieldnames]
+                if missing_columns:
+                    flash(f'Missing required columns: {", ".join(missing_columns)}', 'error')
+                    return redirect(request.url)
+
+                # Process each row
+                success_count = 0
+                update_count = 0
+                error_rows = []
+
+                for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 (header is row 1)
+                    try:
+                        # Clean and validate data
+                        name = row['name'].strip()
+                        email = row['email'].strip().lower()
+                        position_name = row['position'].strip()
+                        team = row['team'].strip().lower()
+
+                        # Validate team
+                        if team not in ['admin', 'clinical']:
+                            error_rows.append(f"Row {row_num}: Invalid team '{team}' (must be 'admin' or 'clinical')")
+                            continue
+
+                        # Parse PTO balance
+                        try:
+                            pto_balance_hours = float(row['pto_balance_hours'].strip())
+                        except ValueError:
+                            error_rows.append(f"Row {row_num}: Invalid PTO balance '{row['pto_balance_hours']}'")
+                            continue
+
+                        # Parse refresh date
+                        try:
+                            pto_refresh_date = datetime.strptime(row['pto_refresh_date'].strip(), '%Y-%m-%d').date()
+                        except ValueError:
+                            error_rows.append(f"Row {row_num}: Invalid date format '{row['pto_refresh_date']}' (use YYYY-MM-DD)")
+                            continue
+
+                        # Find or create position
+                        position = Position.query.filter_by(name=position_name, team=team).first()
+                        if not position:
+                            position = Position(name=position_name, team=team)
+                            db.session.add(position)
+                            db.session.flush()
+
+                        # Check if employee exists
+                        existing_employee = TeamMember.query.filter_by(email=email).first()
+
+                        if existing_employee:
+                            # Update existing employee
+                            existing_employee.name = name
+                            existing_employee.position_id = position.id
+                            existing_employee.pto_balance_hours = pto_balance_hours
+                            existing_employee.pto_refresh_date = pto_refresh_date
+                            update_count += 1
+                        else:
+                            # Create new employee
+                            new_employee = TeamMember(
+                                name=name,
+                                email=email,
+                                position_id=position.id,
+                                pto_balance_hours=pto_balance_hours,
+                                pto_refresh_date=pto_refresh_date
+                            )
+                            db.session.add(new_employee)
+                            success_count += 1
+
+                    except Exception as e:
+                        error_rows.append(f"Row {row_num}: {str(e)}")
+                        continue
+
+                # Commit all changes
+                db.session.commit()
+
+                # Display results
+                if success_count > 0:
+                    flash(f'Successfully added {success_count} new employee(s)', 'success')
+                if update_count > 0:
+                    flash(f'Successfully updated {update_count} existing employee(s)', 'info')
+                if error_rows:
+                    flash(f'Errors encountered in {len(error_rows)} row(s):', 'warning')
+                    for error in error_rows[:5]:  # Show first 5 errors
+                        flash(f'  • {error}', 'warning')
+                    if len(error_rows) > 5:
+                        flash(f'  ... and {len(error_rows) - 5} more errors', 'warning')
+
+                if success_count > 0 or update_count > 0:
+                    return redirect(url_for('employees'))
+
+            except Exception as e:
+                flash(f'Error processing CSV file: {str(e)}', 'error')
+                return redirect(request.url)
+
+        return render_template('upload_csv.html')
+
+    @app.route('/download_csv_template')
+    @roles_required('superadmin')
+    def download_csv_template():
+        """Download a sample CSV template for employee upload"""
+        from flask import Response
+
+        # Create CSV content
+        csv_content = "name,email,position,team,pto_balance_hours,pto_refresh_date\n"
+        csv_content += "John Doe,john.doe@mountsinai.org,CVI RNs,clinical,60.0,2025-01-01\n"
+        csv_content += "Jane Smith,jane.smith@mountsinai.org,Front Desk/Admin,admin,45.0,2025-01-01\n"
+        csv_content += "Bob Johnson,bob.johnson@mountsinai.org,APP,clinical,75.0,2025-01-01\n"
+
+        return Response(
+            csv_content,
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=employee_template.csv'}
+        )
 
     @app.route('/approve_request/<int:request_id>')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
