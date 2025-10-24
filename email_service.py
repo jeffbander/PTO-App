@@ -86,7 +86,6 @@ class EmailService:
                     'source': call_out_record.source,
                     'phone': call_out_record.phone_number_used,
                     'auth_method': call_out_record.authentication_method,
-                    'recording_url': call_out_record.recording_url,
                     'message_text': call_out_record.message_text,
                     'created_at': call_out_record.created_at
                 }
@@ -94,28 +93,28 @@ class EmailService:
         # Send BOTH employee confirmation AND manager notification
 
         # 1. Employee confirmation email
-        employee_email = 'samantha.zakow@mountsinai.org'  # Override for testing
+        employee_email = pto_request.member.email
         employee_subject = f"PTO Request Submitted - Request #{request_id}"
 
         # Add call-out badge to subject if applicable
         if call_out_info:
-            employee_subject = f"🔴 CALL-OUT Recorded - Request #{request_id}"
+            employee_subject = f"✅ CALL-OUT Approved - Request #{request_id}"
 
         employee_body_html = f"""
         <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: {'#dc3545' if call_out_info else '#17a2b8'}; color: white; padding: 20px; text-align: center;">
-                    <h2>{'🔴 CALL-OUT Confirmation' if call_out_info else 'PTO Request Confirmation'}</h2>
+                <div style="background-color: {'#28a745' if call_out_info else '#17a2b8'}; color: white; padding: 20px; text-align: center;">
+                    <h2>{'✅ CALL-OUT Auto-Approved' if call_out_info else 'PTO Request Confirmation'}</h2>
                 </div>
 
                 <div style="padding: 20px; background-color: #f8f9fa;">
                     <p>Dear {employee_name},</p>
 
-                    <p>Your {'<strong>same-day call-out</strong>' if call_out_info else 'PTO request'} has been successfully submitted and is pending manager approval.</p>
+                    <p>Your {'<strong>same-day call-out</strong> has been <strong style="color: #28a745;">AUTOMATICALLY APPROVED</strong>' if call_out_info else 'PTO request has been successfully submitted and is pending manager approval'}.</p>
 
-                    {'<div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 5px;"><strong>⚠️ Same-Day Call-Out:</strong> This is an urgent request for today. Your manager has been notified immediately.</div>' if call_out_info else ''}
+                    {'<div style="background-color: #d4edda; border: 2px solid #28a745; padding: 15px; margin: 15px 0; border-radius: 5px;"><strong>✅ Auto-Approved:</strong> Your call-out has been automatically approved and your sick time balance has been updated. Your manager has been notified for their records.</div>' if call_out_info else ''}
 
-                    <div style="background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid {'#dc3545' if call_out_info else '#17a2b8'};">
+                    <div style="background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid {'#28a745' if call_out_info else '#17a2b8'};">
                         <h3 style="margin-top: 0;">Request Details:</h3>
                         <ul style="list-style: none; padding: 0;">
                             <li><strong>Request ID:</strong> #{request_id}</li>
@@ -123,14 +122,13 @@ class EmailService:
                             <li><strong>End Date:</strong> {pto_request.end_date}</li>
                             <li><strong>PTO Type:</strong> {pto_request.pto_type}</li>
                             <li><strong>Reason:</strong> {pto_request.reason}</li>
-                            <li><strong>Status:</strong> <span style="color: #ffc107; font-weight: bold;">PENDING APPROVAL</span></li>
-                            {'<li><strong>Submitted Via:</strong> <span style="color: #17a2b8;">📞 Phone Call</span></li>' if call_out_info and call_out_info['source'] == 'phone' else ''}
+                            <li><strong>Status:</strong> <span style="color: {'#28a745' if call_out_info else '#ffc107'}; font-weight: bold;">{'APPROVED' if call_out_info else 'PENDING APPROVAL'}</span></li>
                             {'<li><strong>Submitted Via:</strong> <span style="color: #17a2b8;">💬 Text Message</span></li>' if call_out_info and call_out_info['source'] == 'sms' else ''}
                             {'<li><strong>Phone Used:</strong> ' + call_out_info['phone'] + '</li>' if call_out_info else ''}
                         </ul>
                     </div>
 
-                    <p>You will receive an email notification once your manager reviews your request.</p>
+                    <p>{'Your sick time balance has been automatically updated. Feel better!' if call_out_info else 'You will receive an email notification once your manager reviews your request.'}</p>
 
                     <p>Thank you,<br>PTO Management System</p>
                 </div>
@@ -166,26 +164,11 @@ class EmailService:
 
         # 2. Manager notification
         manager_email = self.admin_email if pto_request.manager_team == 'admin' else self.clinical_email
-        manager_subject = f"{'🔴 URGENT CALL-OUT' if call_out_info else 'New PTO Request'} - {employee_name}"
+        manager_subject = f"{'✅ CALL-OUT Auto-Approved (FYI)' if call_out_info else 'New PTO Request'} - {employee_name}"
 
         # Build call-out details section for manager
         call_out_section = ''
         if call_out_info:
-            recording_player = ''
-            if call_out_info['source'] == 'phone' and call_out_info['recording_url']:
-                recording_player = f'''
-                    <div style="background-color: #e7f3ff; padding: 15px; margin: 15px 0; border-radius: 5px;">
-                        <h4 style="margin-top: 0;">📞 Voice Recording:</h4>
-                        <audio controls style="width: 100%;">
-                            <source src="{call_out_info['recording_url']}" type="audio/mpeg">
-                            Your browser does not support audio playback.
-                        </audio>
-                        <p style="font-size: 0.9em; margin-top: 10px;">
-                            <a href="{call_out_info['recording_url']}" target="_blank">Download Recording</a>
-                        </p>
-                    </div>
-                '''
-
             sms_message = ''
             if call_out_info['source'] == 'sms' and call_out_info['message_text']:
                 sms_message = f'''
@@ -197,30 +180,30 @@ class EmailService:
                     </div>
                 '''
 
-            source_icon = '📞 Phone Call' if call_out_info['source'] == 'phone' else '💬 Text Message'
+            source_icon = '💬 Text Message'
             auth_badge = call_out_info['auth_method'].replace('_', ' ').title() if call_out_info['auth_method'] else 'Unknown'
 
             call_out_section = f'''
-                <div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 5px;">
-                    <h3 style="margin-top: 0; color: #856404;">⚠️ SAME-DAY CALL-OUT</h3>
+                <div style="background-color: #d4edda; border: 2px solid #28a745; padding: 15px; margin: 15px 0; border-radius: 5px;">
+                    <h3 style="margin-top: 0; color: #155724;">✅ CALL-OUT AUTO-APPROVED</h3>
                     <p style="margin: 5px 0;"><strong>Submitted Via:</strong> {source_icon}</p>
                     <p style="margin: 5px 0;"><strong>Phone Number:</strong> {call_out_info['phone']}</p>
                     <p style="margin: 5px 0;"><strong>Authentication:</strong> <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 3px; font-size: 0.9em;">✓ {auth_badge}</span></p>
                     <p style="margin: 5px 0;"><strong>Received At:</strong> {call_out_info['created_at'].strftime('%I:%M %p') if call_out_info['created_at'] else 'N/A'}</p>
+                    <p style="margin: 5px 0;"><strong>Status:</strong> <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 3px; font-size: 0.9em;">✓ APPROVED</span></p>
                 </div>
-                {recording_player}
                 {sms_message}
             '''
 
         manager_body_html = f"""
         <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: {'#dc3545' if call_out_info else '#28a745'}; color: white; padding: 20px; text-align: center;">
-                    <h2>{'🔴 URGENT: Same-Day Call-Out' if call_out_info else 'New PTO Request Pending Approval'}</h2>
+                <div style="background-color: {'#28a745' if call_out_info else '#28a745'}; color: white; padding: 20px; text-align: center;">
+                    <h2>{'✅ Call-Out Auto-Approved (FYI)' if call_out_info else 'New PTO Request Pending Approval'}</h2>
                 </div>
 
                 <div style="padding: 20px; background-color: #f8f9fa;">
-                    <p>{'<strong style="color: #dc3545;">URGENT:</strong> An employee has called out sick for TODAY.' if call_out_info else 'A new PTO request requires your attention.'}</p>
+                    <p>{'<strong style="color: #28a745;">FYI:</strong> An employee called out sick for today and was automatically approved. Sick time has been deducted.' if call_out_info else 'A new PTO request requires your attention.'}</p>
 
                     {call_out_section}
 

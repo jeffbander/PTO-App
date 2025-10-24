@@ -311,7 +311,7 @@ class PendingEmployee(db.Model):
         return f'<PendingEmployee {self.name} - {self.status}>'
 
 class CallOutRecord(db.Model):
-    """Model for tracking phone and SMS call-out submissions via Twilio"""
+    """Model for tracking SMS call-out submissions via Twilio"""
     __tablename__ = 'call_out_records'
 
     id = Column(Integer, primary_key=True)
@@ -319,18 +319,16 @@ class CallOutRecord(db.Model):
     pto_request_id = Column(Integer, ForeignKey('pto_requests.id'), nullable=True)
 
     # Twilio tracking information
-    call_sid = Column(String(100), nullable=True)  # Twilio call/message SID
-    recording_url = Column(Text, nullable=True)  # Twilio recording URL (for voice calls)
-    recording_duration = Column(Integer, nullable=True)  # Recording length in seconds
+    call_sid = Column(String(100), nullable=True)  # Twilio message SID
 
     # Call-out metadata
-    source = Column(String(10), nullable=False)  # 'phone' or 'sms'
-    phone_number_used = Column(String(20), nullable=False)  # Caller's phone number
+    source = Column(String(10), nullable=False)  # 'sms'
+    phone_number_used = Column(String(20), nullable=False)  # Sender's phone number
     verified = Column(Boolean, default=False)  # Whether authentication succeeded
-    authentication_method = Column(String(20), nullable=True)  # 'phone_match', 'pin', or 'manual'
+    authentication_method = Column(String(20), nullable=True)  # 'phone_match' or 'manual'
 
     # Message content
-    message_text = Column(Text, nullable=True)  # SMS text or call transcript
+    message_text = Column(Text, nullable=True)  # SMS text message
 
     # Timestamps
     created_at = Column(DateTime, default=get_eastern_time)

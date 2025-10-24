@@ -337,9 +337,11 @@ document.addEventListener('DOMContentLoaded', function() {
         startDate.classList.add('bg-light');
         endDate.classList.add('bg-light');
 
-        // Force PTO Type to Sick Leave and disable
+        // Force PTO Type to Sick Leave and make readonly
         ptoType.value = 'Sick Leave';
-        ptoType.setAttribute('disabled', 'true');
+        ptoType.style.pointerEvents = 'none';
+        ptoType.style.backgroundColor = '#e9ecef';
+        ptoType.classList.add('bg-light');
 
     // Require reason but do NOT auto-fill it; update placeholder
     reason.setAttribute('required', 'true');
@@ -362,7 +364,9 @@ document.addEventListener('DOMContentLoaded', function() {
         startDate.classList.remove('bg-light');
         endDate.classList.remove('bg-light');
 
-        ptoType.removeAttribute('disabled');
+        ptoType.style.pointerEvents = '';
+        ptoType.style.backgroundColor = '';
+        ptoType.classList.remove('bg-light');
 
     // Make reason optional again and restore placeholder
     reason.removeAttribute('required');

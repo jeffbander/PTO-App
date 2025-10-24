@@ -212,7 +212,6 @@ def register_routes(app):
                 'phone_number': callout_record.phone_number_used,
                 'authentication_method': callout_record.authentication_method,
                 'verified': callout_record.verified,
-                'recording_url': callout_record.recording_url,
                 'message_text': callout_record.message_text,
                 'created_at': callout_record.created_at.strftime('%m/%d/%Y %I:%M %p') if callout_record.created_at else None,
                 'call_sid': callout_record.call_sid

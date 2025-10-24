@@ -124,13 +124,6 @@
     font-size: 0.8em;
 }
 
-.recording-player {
-    background-color: #e7f3ff;
-    padding: 15px;
-    border-radius: 5px;
-    margin-top: 10px;
-}
-
 .sms-message {
     background-color: white;
     padding: 15px;
@@ -266,10 +259,6 @@
                         <input type="radio" class="btn-check" name="clinicalFilter" id="filterAllClinical" value="all" checked autocomplete="off">
                         <label class="btn btn-outline-primary" for="filterAllClinical">
                             All Requests <span class="filter-badge badge bg-primary" id="countAllClinical">{{ requests|length }}</span>
-                                        <br>
-                                        <small class="toggle-details" onclick="toggleCallOutDetails({{ request.id }})">
-                                            <i class="fas fa-info-circle"></i> View Details
-                                        </small>
                         </label>
 
                         <input type="radio" class="btn-check" name="clinicalFilter" id="filterPTOClinical" value="pto" autocomplete="off">
@@ -329,6 +318,10 @@
                                         <span class="badge bg-danger">
                                             <i class="fas fa-exclamation-circle"></i> CALL OUT
                                         </span>
+                                        <br>
+                                        <small class="toggle-details" onclick="toggleCallOutDetails({{ request.id }})">
+                                            <i class="fas fa-info-circle"></i> View Details
+                                        </small>
                                     {% else %}
                                         <span class="badge bg-secondary">{{ request.pto_type }}</span>
                                     {% endif %}
@@ -371,6 +364,41 @@
                                     </form>
                                 </td>
                             </tr>
+                            {% if request.is_call_out %}
+                            <tr id="callout-details-{{ request.id }}" class="callout-details-row" style="display: none;">
+                                <td colspan="6">
+                                    <div class="call-out-details">
+                                        <h6><i class="fas fa-phone-alt text-danger"></i> Call-Out Details</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <p><strong>Submitted Via:</strong>
+                                                    <span id="callout-source-{{ request.id }}">Loading...</span>
+                                                </p>
+                                                <p><strong>Phone Number:</strong>
+                                                    <span id="callout-phone-{{ request.id }}">Loading...</span>
+                                                </p>
+                                                <p><strong>Authentication:</strong>
+                                                    <span id="callout-auth-{{ request.id }}">Loading...</span>
+                                                </p>
+                                                <p><strong>Received At:</strong>
+                                                    <span id="callout-time-{{ request.id }}">Loading...</span>
+                                                </p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div id="callout-content-{{ request.id }}">
+                                                    <p class="text-muted">Loading call-out details...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <button class="btn btn-sm btn-secondary" onclick="toggleCallOutDetails({{ request.id }})">
+                                                <i class="fas fa-times"></i> Close
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>
@@ -655,6 +683,67 @@ function filterRequests(filterType) {
             row.style.display = 'none';
         }
     });
+}
+
+function toggleCallOutDetails(requestId) {
+    const detailsRow = document.getElementById('callout-details-' + requestId);
+
+    if (detailsRow.style.display === 'none') {
+        // Show and load details
+        detailsRow.style.display = '';
+        loadCallOutDetails(requestId);
+    } else {
+        // Hide details
+        detailsRow.style.display = 'none';
+    }
+}
+
+function loadCallOutDetails(requestId) {
+    // Fetch call-out details via AJAX
+    fetch('/api/callout-details/' + requestId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const callout = data.callout;
+
+                // Update source badge
+                const sourceIcon = callout.source === 'phone' ? '<i class="fas fa-phone"></i> Phone Call' : '<i class="fas fa-sms"></i> Text Message';
+                const sourceBadgeClass = callout.source === 'phone' ? 'phone' : 'sms';
+                document.getElementById('callout-source-' + requestId).innerHTML =
+                    '<span class="call-out-badge ' + sourceBadgeClass + '">' + sourceIcon + '</span>';
+
+                // Update phone number
+                document.getElementById('callout-phone-' + requestId).textContent = callout.phone_number || 'N/A';
+
+                // Update authentication method
+                const authMethod = callout.authentication_method || 'Unknown';
+                const authDisplay = authMethod.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                document.getElementById('callout-auth-' + requestId).innerHTML =
+                    '<span class="auth-badge"><i class="fas fa-check-circle"></i> ' + authDisplay + '</span>';
+
+                // Update timestamp
+                document.getElementById('callout-time-' + requestId).textContent = callout.created_at || 'N/A';
+
+                // Update content (SMS only)
+                const contentDiv = document.getElementById('callout-content-' + requestId);
+                if (callout.source === 'sms' && callout.message_text) {
+                    contentDiv.innerHTML = `
+                        <div class="sms-message">
+                            <h6><i class="fas fa-comment"></i> SMS Message:</h6>
+                            <p class="mb-0">"${callout.message_text}"</p>
+                        </div>
+                    `;
+                } else {
+                    contentDiv.innerHTML = '<p class="text-muted">No additional details available.</p>';
+                }
+            } else {
+                alert('Failed to load call-out details: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading call-out details:', error);
+            alert('Error loading call-out details. Please try again.');
+        });
 }
 </script>
 {% endblock %}
