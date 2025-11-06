@@ -1,298 +1,230 @@
 {% extends "base.html" %}
 
-{% block title %}{{ employee.name }} - Employee Details - MSW CVI PTO Tracker{% endblock %}
+{% block title %}{{ employee.name }} - Employee Details{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
                 <li class="breadcrumb-item"><a href="{{ url_for('employees') }}">Employees</a></li>
                 <li class="breadcrumb-item active">{{ employee.name }}</li>
             </ol>
         </nav>
-        <h2>
-            <i class="fas fa-user me-2"></i>{{ employee.name.replace('[INACTIVE] ', '') }}
-            {% if '[INACTIVE]' in employee.name %}
-                <span class="badge bg-secondary ms-2">Inactive</span>
-            {% endif %}
-        </h2>
+        <h2><i class="fas fa-user me-2"></i>Employee Details</h2>
     </div>
 </div>
 
-<!-- Employee Information Cards -->
-<div class="row mb-4">
-    <!-- Basic Information -->
-    <div class="col-md-6">
-        <div class="card h-100">
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>Employee Information
+                    <i class="fas fa-id-card me-2"></i>{{ employee.name }}
+                    {% if '[INACTIVE]' in employee.name %}
+                        <span class="badge bg-secondary ms-2">Inactive</span>
+                    {% else %}
+                        <span class="badge bg-success ms-2">Active</span>
+                    {% endif %}
                 </h5>
             </div>
             <div class="card-body">
-                <table class="table table-borderless">
-                    <tr>
-                        <td><strong>Name:</strong></td>
-                        <td>{{ employee.name.replace('[INACTIVE] ', '') }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Email:</strong></td>
-                        <td>{{ employee.email }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Team:</strong></td>
-                        <td>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Contact Information</h6>
+                        <p><strong>Email:</strong> {{ employee.email }}</p>
+                        <p><strong>Phone:</strong> {{ employee.phone or 'Not provided' }}</p>
+
+                        <h6 class="mt-3">Position Details</h6>
+                        <p><strong>Team:</strong>
                             <span class="badge bg-{{ 'primary' if employee.team == 'clinical' else 'secondary' }}">
                                 {{ employee.team|title }}
                             </span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><strong>Position:</strong></td>
-                        <td>{{ employee.position }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Status:</strong></td>
-                        <td>
-                            {% if '[INACTIVE]' in employee.name %}
-                                <span class="badge bg-secondary">Inactive</span>
-                            {% else %}
-                                <span class="badge bg-success">Active</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                </table>
+                        </p>
+                        <p><strong>Position:</strong> {{ employee.position }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>PTO Information</h6>
+                        <p><strong>PTO Balance:</strong> {{ employee.pto_balance_hours }} hours ({{ "%.1f"|format(employee.pto_balance_days) }} days)</p>
+                        <p><strong>Sick Time Balance:</strong> {{ employee.sick_balance_hours }} hours ({{ "%.1f"|format(employee.sick_balance_days) }} days)</p>
+                        {% if employee.pto_refresh_date %}
+                        <p><strong>PTO Refresh Date:</strong> {{ employee.pto_refresh_date.strftime('%B %d, %Y') }}</p>
+                        {% if stats.days_until_refresh is not none %}
+                        <p><strong>Days Until Refresh:</strong> {{ stats.days_until_refresh }} days</p>
+                        {% endif %}
+                        {% else %}
+                        <p><strong>PTO Refresh Date:</strong> Not set</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                <div class="mt-4">
+                    <a href="{{ url_for('edit_employee', employee_id=employee.id) }}" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>Edit Employee
+                    </a>
+                    {% if '[INACTIVE]' not in employee.name %}
+                    <button class="btn btn-danger" onclick="confirmDelete({{ employee.id }}, '{{ employee.name }}')">
+                        <i class="fas fa-trash me-2"></i>Delete Employee
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- PTO Information -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-calendar-day me-2"></i>PTO Balance
-                </h5>
-                <a href="{{ url_for('edit_employee', employee_id=employee.id) }}" class="btn btn-sm btn-outline-primary">
-                    <i class="fas fa-edit me-1"></i>Edit
-                </a>
+    <div class="col-md-4">
+        <!-- PTO Statistics Card -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>PTO Statistics</h5>
             </div>
             <div class="card-body">
-                <table class="table table-borderless">
-                    <tr>
-                        <td><strong>Current Balance:</strong></td>
-                        <td>
-                            <span class="fs-5 text-primary">{{ "%.1f"|format(employee.pto_balance_days) }} days</span>
-                            <br><small class="text-muted">{{ employee.pto_balance_hours }} hours</small>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><strong>Refresh Date:</strong></td>
-                        <td>
-                            {{ employee.pto_refresh_date.strftime('%B %d, %Y') if employee.pto_refresh_date else 'Not set' }}
-                            <br><small class="text-muted">{{ stats.refresh_status }}</small>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><strong>Total Used:</strong></td>
-                        <td>
-                            <span class="text-info">{{ stats.total_pto_used }} days</span>
-                            <br><small class="text-muted">From approved requests</small>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><strong>Remaining:</strong></td>
-                        <td>
-                            <span class="text-success">{{ "%.1f"|format(employee.get_remaining_pto_days()) }} days</span>
-                        </td>
-                    </tr>
-                </table>
+                <div class="mb-3">
+                    <strong>Total Requests:</strong> {{ stats.total_requests }}<br>
+                    <strong>Approved:</strong> <span class="text-success">{{ stats.approved_requests }}</span><br>
+                    <strong>Pending:</strong> <span class="text-warning">{{ stats.pending_requests }}</span><br>
+                    <strong>Denied:</strong> <span class="text-danger">{{ stats.denied_requests }}</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Total PTO Used:</strong> {{ stats.total_pto_used }} days
+                </div>
+            </div>
+        </div>
+
+        <!-- Call-Out Tracking Card -->
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>Call-Out Tracking</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Total Call-Outs:</strong> {{ stats.total_callouts }}<br>
+                    <strong>Approved:</strong> <span class="text-success">{{ stats.approved_callouts }}</span><br>
+                    <strong>Pending:</strong> <span class="text-warning">{{ stats.pending_callouts }}</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Sick Days Used (Call-Outs):</strong> {{ stats.total_callouts_used }} days
+                </div>
+                {% if stats.total_callouts > 0 %}
+                <div class="alert alert-info mt-3 mb-0" role="alert">
+                    <small><i class="fas fa-info-circle me-1"></i>Call-outs are tracked separately and deduct from sick time balance.</small>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
-<!-- PTO Statistics -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-center border-primary">
-            <div class="card-body">
-                <i class="fas fa-calendar-check fa-2x text-primary mb-2"></i>
-                <h4 class="card-title">{{ stats.total_requests }}</h4>
-                <p class="card-text">Total Requests</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center border-success">
-            <div class="card-body">
-                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
-                <h4 class="card-title">{{ stats.approved_requests }}</h4>
-                <p class="card-text">Approved</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center border-warning">
-            <div class="card-body">
-                <i class="fas fa-clock fa-2x text-warning mb-2"></i>
-                <h4 class="card-title">{{ stats.pending_requests }}</h4>
-                <p class="card-text">Pending</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center border-danger">
-            <div class="card-body">
-                <i class="fas fa-times-circle fa-2x text-danger mb-2"></i>
-                <h4 class="card-title">{{ stats.denied_requests }}</h4>
-                <p class="card-text">Denied</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- PTO History -->
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">
-            <i class="fas fa-history me-2"></i>PTO Request History
-        </h5>
-    </div>
-    <div class="card-body">
-        {% if pto_requests %}
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Request #</th>
-                        <th>Type</th>
-                        <th>Dates</th>
-                        <th>Duration</th>
-                        <th>Status</th>
-                        <th>Submitted</th>
-                        <th>Reason</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for request in pto_requests %}
-                    <tr>
-                        <td><strong>#{{ request.id }}</strong></td>
-                        <td>
-                            <span class="badge bg-info">{{ request.pto_type }}</span>
-                        </td>
-                        <td>
-                            <strong>{{ request.start_date }}</strong>
-                            {% if request.start_date != request.end_date %}
-                                to <strong>{{ request.end_date }}</strong>
-                            {% endif %}
-                            {% if request.is_partial_day and request.start_time and request.end_time %}
-                                <br><small class="text-muted">{{ request.start_time }} - {{ request.end_time }}</small>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if request.is_partial_day %}
-                                {{ request.duration_hours }} hours
-                            {% else %}
-                                {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if request.status == 'approved' %}
-                                <span class="badge bg-success">Approved</span>
-                            {% elif request.status == 'pending' %}
-                                <span class="badge bg-warning text-dark">Pending</span>
-                            {% elif request.status == 'denied' %}
-                                <span class="badge bg-danger">Denied</span>
-                            {% elif request.status == 'in_progress' %}
-                                <span class="badge bg-info">In Progress</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{{ request.status|title }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
-                            <br><small class="text-muted">{{ request.submitted_at.strftime('%I:%M %p') if request.submitted_at else '' }}</small>
-                        </td>
-                        <td>
-                            {% if request.reason %}
-                                <span data-bs-toggle="tooltip" title="{{ request.reason }}">
-                                    {{ request.reason[:50] }}{% if request.reason|length > 50 %}...{% endif %}
-                                </span>
-                            {% else %}
-                                <span class="text-muted">No reason provided</span>
-                            {% endif %}
-                            
-                            {% if request.denial_reason %}
-                                <br><small class="text-danger">
-                                    <strong>Denial reason:</strong> {{ request.denial_reason }}
-                                </small>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-5">
-            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">No PTO Requests</h5>
-            <p class="text-muted">This employee has not submitted any PTO requests yet.</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Action Buttons -->
+<!-- PTO Request History -->
 <div class="row mt-4">
     <div class="col-12">
-        <a href="{{ url_for('employees') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Back to Employee Directory
-        </a>
-        {% if session.user_role in ['admin', 'clinical', 'superadmin'] and '[INACTIVE]' not in employee.name %}
-        <a href="{{ url_for('edit_employee', employee_id=employee.id) }}" class="btn btn-primary">
-            <i class="fas fa-edit me-2"></i>Edit Employee
-        </a>
-        {% endif %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Request History</h5>
+            </div>
+            <div class="card-body">
+                {% if pto_requests %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Dates</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in pto_requests %}
+                            <tr>
+                                <td>#{{ request.id }}</td>
+                                <td>
+                                    {% if request.is_call_out %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ request.start_date }} to {{ request.end_date }}
+                                    {% if request.is_partial_day %}
+                                    <br><small class="text-muted">
+                                        <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.is_partial_day %}
+                                        {{ "%.1f"|format(request.duration_hours) }} hours
+                                    {% else %}
+                                        {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge status-{{ request.status }}">
+                                        {{ request.status|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No PTO requests found for this employee.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_head %}
-<style>
-.card {
-    transition: transform 0.2s;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-}
-
-.breadcrumb {
-    background-color: transparent;
-    padding: 0;
-}
-
-.table-borderless td {
-    padding: 0.5rem 0.75rem;
-}
-
-.fs-5 {
-    font-size: 1.25rem!important;
-}
-</style>
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteEmployeeName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    If this employee has PTO history, they will be marked as inactive instead of deleted.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" id="deleteForm" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete Employee</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-// Initialize tooltips
-document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
+function confirmDelete(employeeId, employeeName) {
+    document.getElementById('deleteEmployeeName').textContent = employeeName;
+    document.getElementById('deleteForm').action = `/employee/delete/${employeeId}`;
+
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
 </script>
 {% endblock %}

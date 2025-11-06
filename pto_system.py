@@ -72,6 +72,7 @@ class PTOTrackerSystem:
         employee.email = employee_data['email']
         employee.position_id = position.id
         employee.pto_balance_hours = float(employee_data.get('pto_balance', employee.pto_balance_hours))
+        employee.sick_balance_hours = float(employee_data.get('sick_balance', employee.sick_balance_hours))
 
         if 'pto_refresh_date' in employee_data and employee_data['pto_refresh_date']:
             employee.pto_refresh_date = datetime.strptime(employee_data['pto_refresh_date'], '%Y-%m-%d').date()
@@ -111,8 +112,11 @@ class PTOTrackerSystem:
             )
             db.session.add(member)
             db.session.flush()  # Get the ID
-        
-        # Create PTO request
+
+        # Check if this is a call-out (should be auto-approved)
+        is_call_out = pto_data.get('is_call_out', False)
+
+        # Create PTO request with auto-approval for call-outs
         request = PTORequest(
             member_id=member.id,
             start_date=pto_data['start_date'],
@@ -122,12 +126,23 @@ class PTOTrackerSystem:
             is_partial_day=pto_data.get('is_partial_day', False),
             start_time=pto_data.get('start_time'),
             end_time=pto_data.get('end_time'),
-            reason=pto_data.get('reason')
+            reason=pto_data.get('reason'),
+            is_call_out=is_call_out,
+            status='approved' if is_call_out else 'pending'  # Auto-approve call-outs
         )
-        
+
         db.session.add(request)
+        db.session.flush()  # Get the ID before deducting balance
+
+        # If call-out, automatically deduct from sick balance
+        if is_call_out and member:
+            hours_to_deduct = request.duration_hours
+            current_sick_balance = float(member.sick_balance_hours)
+            new_sick_balance = max(0, current_sick_balance - hours_to_deduct)
+            member.sick_balance_hours = new_sick_balance
+
         db.session.commit()
-        
+
         return request
     
     def get_requests_by_team(self, team):
@@ -143,14 +158,22 @@ class PTOTrackerSystem:
         request = PTORequest.query.get(request_id)
         if request and request.status == 'pending':
             request.status = 'approved'
-            
-            # Deduct PTO balance from member
+
+            # Deduct from appropriate balance based on request type
             if request.member:
                 hours_to_deduct = request.duration_hours
-                current_balance = float(request.member.pto_balance_hours)
-                new_balance = max(0, current_balance - hours_to_deduct)
-                request.member.pto_balance_hours = new_balance
-            
+
+                # Call-outs always deduct from sick time balance
+                if request.is_call_out:
+                    current_sick_balance = float(request.member.sick_balance_hours)
+                    new_sick_balance = max(0, current_sick_balance - hours_to_deduct)
+                    request.member.sick_balance_hours = new_sick_balance
+                else:
+                    # Regular PTO deducts from PTO balance
+                    current_pto_balance = float(request.member.pto_balance_hours)
+                    new_pto_balance = max(0, current_pto_balance - hours_to_deduct)
+                    request.member.pto_balance_hours = new_pto_balance
+
             db.session.commit()
             return True
         return False

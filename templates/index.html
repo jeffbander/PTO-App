@@ -13,6 +13,8 @@
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('submit_request') }}" id="ptoForm">
+                    <!-- Hidden flag to indicate Call Out mode -->
+                    <input type="hidden" id="call_out_flag" name="call_out" value="0">
                     <!-- Employee Information -->
                     <div class="row mb-4">
                         <div class="col-12">
@@ -71,6 +73,15 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
+                        <!-- Call Out option placed in Request Details (checkbox style like Partial Day) -->
+                        <div class="col-12 mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="call_out_checkbox" name="call_out_checkbox">
+                                <label class="form-check-label" for="call_out_checkbox">
+                                    Call-out (Today Only)
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Partial Day Option -->
@@ -103,15 +114,20 @@
                             <label for="reason" class="form-label">Reason/Notes</label>
                             <textarea class="form-control" id="reason" name="reason" rows="3" 
                                       placeholder="Optional: Provide any additional details about your request"></textarea>
+                            <div id="callout_reason_note" class="form-text text-danger" style="display: none;">
+                                Reason is required when submitting a Call Out (sick) request.
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Submit Button -->
+                    <!-- Submit Buttons -->
                     <div class="row">
                         <div class="col-12 text-center">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-paper-plane me-2"></i>Submit PTO Request
-                            </button>
+                            <div class="btn-group" role="group" aria-label="Submit options">
+                                <button type="submit" class="btn btn-primary btn-lg" id="submitPTOBtn">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit PTO Request
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -290,5 +306,105 @@ function showNotification(message, type = 'info') {
         }
     }, 5000);
 }
+
+// Call Out (Today Only) behavior
+document.addEventListener('DOMContentLoaded', function() {
+    const callOutCheckbox = document.getElementById('call_out_checkbox');
+    const startDate = document.getElementById('start_date');
+    const endDate = document.getElementById('end_date');
+    const ptoType = document.getElementById('pto_type');
+    const reason = document.getElementById('reason');
+    const ptoForm = document.getElementById('ptoForm');
+    const submitBtn = document.getElementById('submitPTOBtn');
+
+    // Capture original placeholder to restore later
+    const originalReasonPlaceholder = reason ? (reason.getAttribute('placeholder') || '') : '';
+
+    let callOutActive = false;
+
+    function enableCallOutMode() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const isoDate = `${yyyy}-${mm}-${dd}`;
+
+        // Set dates to today but keep them editable
+        startDate.value = isoDate;
+        endDate.value = isoDate;
+
+        // Force PTO Type to Sick Leave and make readonly
+        ptoType.value = 'Sick Leave';
+        ptoType.style.pointerEvents = 'none';
+        ptoType.style.backgroundColor = '#e9ecef';
+        ptoType.classList.add('bg-light');
+
+    // Require reason but do NOT auto-fill it; update placeholder
+    reason.setAttribute('required', 'true');
+    if (reason) reason.setAttribute('placeholder', 'Reason is required when submitting a Call Out request.');
+
+    // Visually indicate call out mode by checking the checkbox
+    if (callOutCheckbox) callOutCheckbox.checked = true;
+
+        // Set hidden flag
+        const callOutFlag = document.getElementById('call_out_flag');
+        if (callOutFlag) {
+            callOutFlag.value = '1';
+        }
+
+        callOutActive = true;
+    }
+
+    function disableCallOutMode() {
+        // Re-enable PTO type selection
+        ptoType.style.pointerEvents = '';
+        ptoType.style.backgroundColor = '';
+        ptoType.classList.remove('bg-light');
+
+    // Make reason optional again and restore placeholder
+    reason.removeAttribute('required');
+    if (reason) reason.setAttribute('placeholder', originalReasonPlaceholder);
+
+    // Uncheck the checkbox
+    if (callOutCheckbox) callOutCheckbox.checked = false;
+
+        const callOutFlag = document.getElementById('call_out_flag');
+        if (callOutFlag) callOutFlag.value = '0';
+
+        callOutActive = false;
+    }
+
+    // Toggle call out mode when checkbox changes
+    if (callOutCheckbox) {
+        callOutCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                enableCallOutMode();
+                reason.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                disableCallOutMode();
+            }
+        });
+    }
+
+    // Ensure form validation enforces reason when Call Out mode is active
+    ptoForm.addEventListener('submit', function(e) {
+        if (callOutActive) {
+            // Validate reason
+            if (!reason.value || reason.value.trim() === '') {
+                e.preventDefault();
+                showNotification('Please provide a reason for calling out sick.', 'error');
+                reason.focus();
+                return false;
+            }
+
+            // Ensure pto type is Sick Leave
+            if (ptoType.value !== 'Sick Leave') {
+                e.preventDefault();
+                showNotification('Call Out requests must use PTO type: Sick Leave.', 'error');
+                return false;
+            }
+        }
+    });
+});
 </script>
 {% endblock %}

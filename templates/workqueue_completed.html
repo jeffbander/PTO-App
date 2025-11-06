@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Completed Requests{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>
+                <i class="fas fa-archive me-2 text-secondary"></i>Completed PTO Requests
+                <span class="badge bg-secondary ms-2">{{ requests|length }}</span>
+            </h2>
+            <p class="text-muted">Historical record of all completed PTO requests</p>
+        </div>
+    </div>
+
+    <!-- Workqueue Navigation -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-inbox"></i> Pending
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('workqueue_in_progress') }}">
+                <i class="fas fa-tasks"></i> In Progress
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('workqueue_approved') }}">
+                <i class="fas fa-check-circle"></i> Approved
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" href="{{ url_for('workqueue_completed') }}">
+                <i class="fas fa-archive"></i> Completed
+                <span class="badge bg-secondary ms-1">{{ requests|length }}</span>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Completed Requests -->
+    <div class="card">
+        <div class="card-body">
+            {% if requests %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Dates</th>
+                            <th>Type</th>
+                            <th>Days Used</th>
+                            <th>Completed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in requests %}
+                        <tr>
+                            <td>
+                                <strong>{{ request.member.name }}</strong><br>
+                                <small class="text-muted">{{ request.member.position.name }}</small>
+                            </td>
+                            <td>
+                                {{ request.start_date }} to {{ request.end_date }}
+                                {% if request.is_partial_day %}
+                                <br><small class="text-muted">
+                                    <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
+                                </small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                            </td>
+                            <td>
+                                {% if request.get_pto_breakdown %}
+                                    {% set breakdown = request.get_pto_breakdown() %}
+                                    <strong>{{ breakdown.business_days }}</strong> days
+                                {% else %}
+                                    <strong>{{ request.duration_days }}</strong> days
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if request.completed_date %}
+                                    {{ request.completed_date.strftime('%m/%d/%Y') }}
+                                {% else %}
+                                    {{ request.end_date }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#details_{{ request.id }}">
+                                    <i class="fas fa-history"></i> History
+                                </button>
+                            </td>
+                        </tr>
+                        <tr class="collapse" id="details_{{ request.id }}">
+                            <td colspan="6">
+                                <div class="p-3 bg-light">
+                                    <h6 class="mb-3">Request Timeline</h6>
+                                    <div class="timeline">
+                                        <div class="mb-2">
+                                            <i class="fas fa-paper-plane text-primary"></i>
+                                            <strong>Submitted:</strong> {{ request.submitted_at.strftime('%m/%d/%Y %I:%M %p') }}
+                                        </div>
+                                        {% if request.approved_date %}
+                                        <div class="mb-2">
+                                            <i class="fas fa-check text-success"></i>
+                                            <strong>Approved:</strong> {{ request.approved_date.strftime('%m/%d/%Y %I:%M %p') }}
+                                        </div>
+                                        {% endif %}
+                                        <div class="mb-2">
+                                            <i class="fas fa-calendar-check text-info"></i>
+                                            <strong>PTO Period:</strong> {{ request.start_date }} to {{ request.end_date }}
+                                        </div>
+                                        {% if request.completed_date %}
+                                        <div class="mb-2">
+                                            <i class="fas fa-flag-checkered text-secondary"></i>
+                                            <strong>Completed:</strong> {{ request.completed_date.strftime('%m/%d/%Y %I:%M %p') }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <hr>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Reason:</strong> {{ request.reason or 'Not provided' }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Final Status:</strong><br>
+                                            <i class="fas fa-{% if request.timekeeping_entered %}check-circle text-success{% else %}times-circle text-warning{% endif %}"></i>
+                                            Timekeeping: {% if request.timekeeping_entered %}Entered{% else %}Not Entered{% endif %}<br>
+                                            <i class="fas fa-{% if request.coverage_arranged %}check-circle text-success{% else %}times-circle text-warning{% endif %}"></i>
+                                            Coverage: {% if request.coverage_arranged %}Arranged{% else %}Not Arranged{% endif %}
+                                        </div>
+                                    </div>
+
+                                    {% if request.get_pto_breakdown %}
+                                    {% set breakdown = request.get_pto_breakdown() %}
+                                    {% else %}
+                                    {% set breakdown = {'business_days': request.duration_days, 'weekend_days': 0, 'holiday_days': 0} %}
+                                    {% endif %}
+                                    {% if breakdown.weekend_days > 0 or breakdown.holiday_days > 0 %}
+                                    <div class="alert alert-info mt-3 mb-0">
+                                        <strong>PTO Breakdown:</strong>
+                                        {{ breakdown.business_days }} business days used
+                                        {% if breakdown.weekend_days > 0 %}
+                                            ({{ breakdown.weekend_days }} weekend days excluded)
+                                        {% endif %}
+                                        {% if breakdown.holiday_days > 0 %}
+                                            , {{ breakdown.holiday_days }} holidays excluded
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Summary Statistics -->
+            <div class="card mt-4 bg-light">
+                <div class="card-body">
+                    <h5>Summary Statistics</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Total Requests:</strong> {{ requests|length }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Total Days Used:</strong>
+                            {% set total_days = 0 %}
+                            {% for req in requests %}
+                                {% if req.get_pto_breakdown %}
+                                    {% set breakdown = req.get_pto_breakdown() %}
+                                    {% set total_days = total_days + breakdown.business_days %}
+                                {% else %}
+                                    {% set total_days = total_days + req.duration_days %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ total_days }} days
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Most Common Type:</strong>
+                            {% set type_counts = {} %}
+                            {% for request in requests %}
+                                {% if request.pto_type in type_counts %}
+                                    {% set _ = type_counts.update({request.pto_type: type_counts[request.pto_type] + 1}) %}
+                                {% else %}
+                                    {% set _ = type_counts.update({request.pto_type: 1}) %}
+                                {% endif %}
+                            {% endfor %}
+                            {% if type_counts %}
+                                {{ type_counts|dictsort(false, 'value')|reverse|first|first }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Date Range:</strong>
+                            {% if requests %}
+                                {{ requests[-1].end_date }} - {{ requests[0].end_date }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-archive fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Completed Requests</h5>
+                <p class="text-muted">PTO requests will appear here after their end date has passed</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -124,6 +124,13 @@
     font-size: 0.8em;
 }
 
+.recording-player {
+    background-color: #e7f3ff;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
 .sms-message {
     background-color: white;
     padding: 15px;
@@ -724,9 +731,24 @@ function loadCallOutDetails(requestId) {
                 // Update timestamp
                 document.getElementById('callout-time-' + requestId).textContent = callout.created_at || 'N/A';
 
-                // Update content (SMS only)
+                // Update content (recording or SMS)
                 const contentDiv = document.getElementById('callout-content-' + requestId);
-                if (callout.source === 'sms' && callout.message_text) {
+                if (callout.source === 'phone' && callout.recording_url) {
+                    contentDiv.innerHTML = `
+                        <div class="recording-player">
+                            <h6><i class="fas fa-volume-up"></i> Voice Recording:</h6>
+                            <audio controls style="width: 100%; margin-top: 10px;">
+                                <source src="${callout.recording_url}" type="audio/mpeg">
+                                Your browser does not support audio playback.
+                            </audio>
+                            <p class="mt-2 mb-0">
+                                <a href="${callout.recording_url}" target="_blank" class="btn btn-sm btn-info">
+                                    <i class="fas fa-download"></i> Download Recording
+                                </a>
+                            </p>
+                        </div>
+                    `;
+                } else if (callout.source === 'sms' && callout.message_text) {
                     contentDiv.innerHTML = `
                         <div class="sms-message">
                             <h6><i class="fas fa-comment"></i> SMS Message:</h6>

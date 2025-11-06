@@ -2,6 +2,32 @@
 
 {% block title %}Super Admin Dashboard - MSW CVI PTO Tracker{% endblock %}
 
+{% block extra_head %}
+<style>
+/* Filter buttons */
+.filter-buttons {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.filter-buttons .btn-group {
+    width: 100%;
+}
+
+.filter-buttons .btn {
+    flex: 1;
+}
+
+.filter-badge {
+    font-size: 0.75em;
+    vertical-align: middle;
+    margin-left: 5px;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
@@ -76,6 +102,26 @@
     </div>
     <div class="card-body">
         {% if requests %}
+        <!-- Filter Controls -->
+        <div class="filter-buttons">
+            <div class="btn-group" role="group" aria-label="Filter requests">
+                <input type="radio" class="btn-check" name="superAdminFilter" id="filterAllRequests" value="all" checked autocomplete="off">
+                <label class="btn btn-outline-primary" for="filterAllRequests">
+                    All Requests <span class="filter-badge badge bg-primary" id="countAllRequests">{{ requests|length }}</span>
+                </label>
+
+                <input type="radio" class="btn-check" name="superAdminFilter" id="filterPTORequests" value="pto" autocomplete="off">
+                <label class="btn btn-outline-success" for="filterPTORequests">
+                    PTO Only <span class="filter-badge badge bg-success" id="countPTORequests">0</span>
+                </label>
+
+                <input type="radio" class="btn-check" name="superAdminFilter" id="filterCallOutRequests" value="callout" autocomplete="off">
+                <label class="btn btn-outline-danger" for="filterCallOutRequests">
+                    Call-Outs Only <span class="filter-badge badge bg-danger" id="countCallOutRequests">0</span>
+                </label>
+            </div>
+        </div>
+
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
@@ -96,7 +142,7 @@
                 </thead>
                 <tbody>
                     {% for request in requests %}
-                    <tr>
+                    <tr data-request-type="{% if request.is_call_out %}callout{% else %}pto{% endif %}" class="request-row">
                         <td>#{{ request.id }}</td>
                         <td>{{ request.member.name if request.member else 'Unknown' }}</td>
                         <td>
@@ -108,10 +154,16 @@
                         <td>{{ request.start_date }}</td>
                         <td>{{ request.end_date }}</td>
                         <td>
-                            {% if request.is_partial_day %}
-                                <span class="badge bg-info">Partial Day</span><br>
+                            {% if request.is_call_out %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                </span>
+                            {% else %}
+                                {% if request.is_partial_day %}
+                                    <span class="badge bg-info">Partial Day</span><br>
+                                {% endif %}
+                                <span class="badge bg-secondary">{{ request.pto_type }}</span>
                             {% endif %}
-                            {{ request.pto_type }}
                         </td>
                         <td>
                             {% if request.is_partial_day %}
@@ -163,4 +215,63 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+// Initialize filter functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
+    // Initialize filter counts
+    updateFilterCounts();
+
+    // Handle filter changes
+    const filterButtons = document.querySelectorAll('input[name="superAdminFilter"]');
+    filterButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            filterRequests(this.value);
+        });
+    });
+});
+
+function updateFilterCounts() {
+    const allRows = document.querySelectorAll('.request-row');
+    let ptoCount = 0;
+    let calloutCount = 0;
+
+    allRows.forEach(row => {
+        const type = row.getAttribute('data-request-type');
+        if (type === 'callout') {
+            calloutCount++;
+        } else {
+            ptoCount++;
+        }
+    });
+
+    document.getElementById('countAllRequests').textContent = allRows.length;
+    document.getElementById('countPTORequests').textContent = ptoCount;
+    document.getElementById('countCallOutRequests').textContent = calloutCount;
+}
+
+function filterRequests(filterType) {
+    const allRows = document.querySelectorAll('.request-row');
+
+    allRows.forEach(row => {
+        const rowType = row.getAttribute('data-request-type');
+
+        if (filterType === 'all') {
+            row.style.display = '';
+        } else if (filterType === 'pto' && rowType === 'pto') {
+            row.style.display = '';
+        } else if (filterType === 'callout' && rowType === 'callout') {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+</script>
 {% endblock %}

@@ -5,6 +5,16 @@ from pto_system import PTOTrackerSystem
 from auth import roles_required, authenticate_user, login_user, logout_user, get_current_user
 from email_service import send_submission_email
 from datetime import datetime
+import pytz
+
+# Define Eastern timezone
+EASTERN = pytz.timezone('US/Eastern')
+
+def get_eastern_time():
+    """Get current time in Eastern timezone as naive datetime"""
+    eastern_now = datetime.now(EASTERN)
+    # Return naive datetime (no timezone info) but in Eastern time
+    return eastern_now.replace(tzinfo=None)
 
 # Initialize the PTO system
 pto_system = PTOTrackerSystem()
@@ -122,6 +132,9 @@ def handle_pto_request_submission():
         'position': request.form.get('position')
     }
     
+    # Detect call-out flag sent from client
+    call_out_flag = request.form.get('call_out', '0') == '1'
+
     pto_data = {
         'start_date': request.form.get('start_date'),
         'end_date': request.form.get('end_date'),
@@ -129,8 +142,19 @@ def handle_pto_request_submission():
         'is_partial_day': request.form.get('is_partial_day') == 'on',
         'start_time': request.form.get('start_time'),
         'end_time': request.form.get('end_time'),
-        'reason': request.form.get('reason')
+        'reason': request.form.get('reason'),
+        'is_call_out': call_out_flag
     }
+
+    # Server-side validation for call-out requests
+    if call_out_flag:
+        if pto_data['pto_type'] != 'Sick Leave':
+            flash('Call Out requests must use PTO Type: Sick Leave.', 'error')
+            return redirect(url_for('index'))
+
+        if not pto_data.get('reason') or pto_data.get('reason').strip() == '':
+            flash('Please provide a reason for calling out sick.', 'error')
+            return redirect(url_for('index'))
     
     # Validate required fields
     if not all([member_data['name'], member_data['email'], 
@@ -144,8 +168,12 @@ def handle_pto_request_submission():
     # Send notification emails
     request_data = {**member_data, **pto_data}
     send_submission_email(request_data, new_request.id)
-    
-    flash(f'PTO request submitted successfully! Request ID: #{new_request.id}', 'success')
+
+    # Different message for call-out vs PTO
+    if call_out_flag:
+        flash(f'Call-out successfully submitted! Request ID: #{new_request.id}', 'success')
+    else:
+        flash(f'PTO request submitted successfully! Request ID: #{new_request.id}', 'success')
     return redirect(url_for('index'))
 
 def send_employee_approval_email(pending_employee):
@@ -392,6 +420,7 @@ def edit_employee(employee_id):
                 'email': request.form.get('email'),
                 'position': request.form.get('position'),
                 'pto_balance': float(request.form.get('pto_balance', employee.pto_balance_hours)),
+                'sick_balance': float(request.form.get('sick_balance', employee.sick_balance_hours)),
                 'pto_refresh_date': request.form.get('pto_refresh_date')
             }
             pto_system.edit_employee(employee_id, employee_data)
@@ -439,10 +468,19 @@ def employee_detail(employee_id):
     approved_requests = len([r for r in pto_requests if r.status == 'approved'])
     pending_requests = len([r for r in pto_requests if r.status == 'pending'])
     denied_requests = len([r for r in pto_requests if r.status == 'denied'])
-    
-    # Calculate total PTO days used (approved requests only)
-    total_pto_used = sum(r.duration_days if not r.is_partial_day else r.duration_hours / 7.5 
-                        for r in pto_requests if r.status == 'approved')
+
+    # Calculate call-out specific statistics
+    total_callouts = len([r for r in pto_requests if r.is_call_out])
+    approved_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'approved'])
+    pending_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'pending'])
+
+    # Calculate total PTO days used (approved requests only) - excluding call-outs
+    total_pto_used = sum(r.duration_days if not r.is_partial_day else r.duration_hours / 7.5
+                        for r in pto_requests if r.status == 'approved' and not r.is_call_out)
+
+    # Calculate total call-out days used (approved call-outs only)
+    total_callouts_used = sum(r.duration_days if not r.is_partial_day else r.duration_hours / 7.5
+                             for r in pto_requests if r.status == 'approved' and r.is_call_out)
     
     # Calculate days until next PTO refresh
     days_until_refresh = None
@@ -464,6 +502,10 @@ def employee_detail(employee_id):
         'pending_requests': pending_requests,
         'denied_requests': denied_requests,
         'total_pto_used': round(total_pto_used, 1),
+        'total_callouts': total_callouts,
+        'approved_callouts': approved_callouts,
+        'pending_callouts': pending_callouts,
+        'total_callouts_used': round(total_callouts_used, 1),
         'refresh_status': refresh_status
     }
     
@@ -555,7 +597,7 @@ def approve_employee(employee_id):
         
         # Update pending employee status
         pending_employee.status = 'approved'
-        pending_employee.approved_at = datetime.utcnow()
+        pending_employee.approved_at = get_eastern_time()
         pending_employee.approved_by_id = current_user.id
         
         # Save to database
@@ -603,7 +645,7 @@ def deny_employee(employee_id):
         # Update pending employee status
         pending_employee.status = 'denied'
         pending_employee.denial_reason = denial_reason
-        pending_employee.approved_at = datetime.utcnow()
+        pending_employee.approved_at = get_eastern_time()
         pending_employee.approved_by_id = current_user.id
         
         db.session.commit()
@@ -694,39 +736,50 @@ def calendar():
     # Prepare calendar events data
     events = []
     for req in requests:
-        # Determine event color based on status
-        if req.status == 'approved':
+        # Determine event color based on call-out status first, then regular status
+        if req.is_call_out:
+            color = '#dc3545'  # Red for call-outs
+        elif req.status == 'approved':
             color = '#28a745'  # Green
         elif req.status == 'pending':
             color = '#ffc107'  # Yellow
         else:
             color = '#6c757d'  # Gray
-            
+
+        # Determine title based on call-out status
+        employee_name = req.member.name if req.member else 'Unknown'
+        if req.is_call_out:
+            title = f"Call Out - {employee_name}"
+        else:
+            title = f"{employee_name} - {req.pto_type}"
+
         # Create event object
         event = {
             'id': req.id,
-            'title': f"{req.member.name if req.member else 'Unknown'} - {req.pto_type}",
+            'title': title,
             'start': str(req.start_date),
             'end': str(req.end_date),
             'color': color,
             'extendedProps': {
-                'employee': req.member.name if req.member else 'Unknown',
+                'employee': employee_name,
                 'type': req.pto_type,
                 'status': req.status,
                 'team': req.member.team if req.member else 'N/A',
                 'employee_position': req.member.position if req.member else 'N/A',
                 'duration': req.duration_days if not req.is_partial_day else f"{req.duration_hours} hours",
                 'is_partial_day': req.is_partial_day,
+                'is_call_out': req.is_call_out,
                 'reason': req.reason
             }
         }
-        
+
         # For partial day requests, add time information
         if req.is_partial_day and req.start_time and req.end_time:
             event['start'] = f"{req.start_date}T{req.start_time}"
             event['end'] = f"{req.end_date}T{req.end_time}"
-            event['title'] = f"{req.member.name if req.member else 'Unknown'} - {req.pto_type} (Partial)"
-        
+            if not req.is_call_out:  # Don't override call-out title
+                event['title'] = f"{employee_name} - {req.pto_type} (Partial)"
+
         events.append(event)
     
     return render_template('calendar.html', requests=requests, calendar_events=events)

@@ -2,11 +2,153 @@
 
 {% block title %}Clinical Dashboard - MSW CVI PTO Tracker{% endblock %}
 
+{% block extra_head %}
+<style>
+.submission-timestamp {
+    min-width: 120px;
+    font-size: 0.9em;
+    line-height: 1.3;
+}
+
+.submission-timestamp strong {
+    font-weight: 600;
+    font-size: 1.05em;
+}
+
+.submission-timestamp .badge {
+    font-size: 0.8em;
+    padding: 0.3em 0.5em;
+    border: 1px solid #dee2e6;
+}
+
+.submission-timestamp small {
+    font-size: 0.75em;
+    line-height: 1.2;
+}
+
+.submission-timestamp .fas {
+    margin-right: 0.3em;
+}
+
+/* Highlight recent submissions */
+.submission-timestamp .text-warning {
+    font-weight: 600;
+}
+
+.submission-timestamp .text-info {
+    font-weight: 500;
+}
+
+/* Tab content styling */
+.tab-content {
+    padding-top: 20px;
+}
+
+.nav-tabs .nav-link {
+    color: #ffffff;  /* White text for better visibility */
+    font-weight: 500;
+    background-color: rgba(255, 255, 255, 0.1);  /* Slight white background */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-right: 2px;
+}
+
+.nav-tabs .nav-link:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;  /* Bootstrap primary color for active tab */
+    font-weight: 600;
+    background-color: #ffffff;
+    border-color: #ffffff #ffffff #fff;
+}
+
+.nav-tabs .badge {
+    margin-left: 5px;
+}
+
+/* Filter buttons */
+.filter-buttons {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.filter-buttons .btn-group {
+    width: 100%;
+}
+
+.filter-buttons .btn {
+    flex: 1;
+}
+
+.filter-badge {
+    font-size: 0.75em;
+    vertical-align: middle;
+    margin-left: 5px;
+}
+
+/* Call-out detail styles */
+.call-out-details {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-left: 4px solid #dc3545;
+    margin: 10px 0;
+}
+
+.call-out-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    margin-right: 8px;
+}
+
+.call-out-badge.phone {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.call-out-badge.sms {
+    background-color: #28a745;
+    color: white;
+}
+
+.auth-badge {
+    background-color: #6c757d;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
+}
+
+.sms-message {
+    background-color: white;
+    padding: 15px;
+    border-left: 3px solid #17a2b8;
+    font-style: italic;
+    margin-top: 10px;
+}
+
+.toggle-details {
+    cursor: pointer;
+    color: #0d6efd;
+    text-decoration: underline;
+}
+
+.toggle-details:hover {
+    color: #0a58ca;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
         <h2>
-            <i class="fas fa-user-md me-2"></i>Clinical Manager Dashboard
+            <i class="fas fa-stethoscope me-2"></i>Clinical Manager Dashboard
             <small class="text-muted">- Welcome {{ session.user_name }}</small>
         </h2>
     </div>
@@ -43,114 +185,646 @@
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="stats-card">
-            <div class="stats-number">{{ requests|selectattr("status", "equalto", "pending")|list|length }}</div>
+            <div class="stats-number">{{ stats.pending }}</div>
             <div class="stats-label">Pending Requests</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="stats-card">
-            <div class="stats-number">{{ requests|selectattr("status", "equalto", "approved")|list|length }}</div>
-            <div class="stats-label">Approved This Month</div>
+            <div class="stats-number">{{ stats.in_progress }}</div>
+            <div class="stats-label">In Progress</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="stats-card">
-            <div class="stats-number">{{ requests|length }}</div>
+            <div class="stats-number">{{ stats.approved }}</div>
+            <div class="stats-label">Approved</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-number">{{ stats.total }}</div>
             <div class="stats-label">Total Requests</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stats-card">
-            <div class="stats-number">{{ requests|selectattr("status", "equalto", "denied")|list|length }}</div>
-            <div class="stats-label">Denied Requests</div>
         </div>
     </div>
 </div>
 
-<!-- Requests Table -->
+<!-- Dashboard Tabs -->
 <div class="card">
     <div class="card-header">
-        <h5 class="mb-0">
-            <i class="fas fa-list me-2"></i>Clinical Team PTO Requests
-        </h5>
+        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="pending-pto-tab" data-bs-toggle="tab" href="#pending-pto" role="tab">
+                    <i class="fas fa-clock"></i> Pending PTO
+                    {% if requests|length > 0 %}
+                        <span class="badge bg-danger">{{ requests|length }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="in-progress-tab" data-bs-toggle="tab" href="#in-progress" role="tab">
+                    <i class="fas fa-tasks"></i> In Progress
+                    {% if in_progress_requests|length > 0 %}
+                        <span class="badge bg-warning text-dark">{{ in_progress_requests|length }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="approved-tab" data-bs-toggle="tab" href="#approved" role="tab">
+                    <i class="fas fa-check-circle"></i> Approved
+                    {% if approved_requests|length > 0 %}
+                        <span class="badge bg-success">{{ approved_requests|length }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="employees-tab" data-bs-toggle="tab" href="#employees-registrations" role="tab">
+                    <i class="fas fa-user-plus"></i> Employee Registrations
+                    {% if pending_employees|length > 0 %}
+                        <span class="badge bg-info">{{ pending_employees|length }}</span>
+                    {% endif %}
+                </a>
+            </li>
+        </ul>
     </div>
+
     <div class="card-body">
-        {% if requests %}
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Employee</th>
-                        <th>Position</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Type</th>
-                        <th>Duration</th>
-                        <th>Submitted</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for request in requests %}
-                    <tr>
-                        <td>#{{ request.id }}</td>
-                        <td>{{ request.member.name if request.member else 'Unknown' }}</td>
-                        <td>{{ request.member.position if request.member else 'N/A' }}</td>
-                        <td>{{ request.start_date }}</td>
-                        <td>{{ request.end_date }}</td>
-                        <td>
-                            {% if request.is_partial_day %}
-                                <span class="badge bg-info">Partial Day</span><br>
+        <div class="tab-content">
+            <!-- Pending PTO Tab -->
+            <div class="tab-pane fade show active" id="pending-pto" role="tabpanel">
+                {% if requests %}
+                <!-- Filter Controls -->
+                <div class="filter-buttons">
+                    <div class="btn-group" role="group" aria-label="Filter requests">
+                        <input type="radio" class="btn-check" name="clinicalFilter" id="filterAllClinical" value="all" checked autocomplete="off">
+                        <label class="btn btn-outline-primary" for="filterAllClinical">
+                            All Requests <span class="filter-badge badge bg-primary" id="countAllClinical">{{ requests|length }}</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="clinicalFilter" id="filterPTOClinical" value="pto" autocomplete="off">
+                        <label class="btn btn-outline-success" for="filterPTOClinical">
+                            PTO Only <span class="filter-badge badge bg-success" id="countPTOClinical">0</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="clinicalFilter" id="filterCallOutClinical" value="callout" autocomplete="off">
+                        <label class="btn btn-outline-danger" for="filterCallOutClinical">
+                            Call-Outs Only <span class="filter-badge badge bg-danger" id="countCallOutClinical">0</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Dates</th>
+                                <th>Type</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in requests %}
+                            <tr data-request-type="{% if request.is_call_out %}callout{% else %}pto{% endif %}" class="request-row">
+                                <td>
+                                    <strong>{{ request.member.name }}</strong><br>
+                                    <small class="text-muted">{{ request.member.position.name }}</small>
+                                </td>
+                                <td>
+                                    <div>
+                                        <i class="fas fa-calendar-alt text-primary me-1"></i>
+                                        {{ request.start_date }} to {{ request.end_date }}
+                                    </div>
+                                    {% if request.is_partial_day %}
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
+                                    </small>
+                                    {% endif %}
+                                    <div class="mt-1">
+                                        <span class="badge bg-info">
+                                            {% if request.get_pto_breakdown %}
+                                                {% set breakdown = request.get_pto_breakdown() %}
+                                                {{ breakdown.business_days }} business days
+                                            {% else %}
+                                                {{ request.duration_days }} days
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if request.is_call_out %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                        </span>
+                                        <br>
+                                        <small class="toggle-details" onclick="toggleCallOutDetails({{ request.id }})">
+                                            <i class="fas fa-info-circle"></i> View Details
+                                        </small>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="submission-timestamp">
+                                        {% if request.submitted_at %}
+                                        <strong>{{ request.submitted_at.strftime('%m/%d/%Y') }}</strong>
+                                        <br><small class="text-muted">
+                                            {% set days_ago = (now() - request.submitted_at).days %}
+                                            {% if days_ago == 0 %}
+                                                <i class="fas fa-clock text-warning"></i> Today
+                                            {% elif days_ago == 1 %}
+                                                <i class="fas fa-calendar-minus text-info"></i> Yesterday
+                                            {% elif days_ago <= 7 %}
+                                                <i class="fas fa-calendar text-secondary"></i> {{ days_ago }} days ago
+                                            {% else %}
+                                                <i class="fas fa-calendar-alt text-muted"></i> {{ days_ago }} days ago
+                                            {% endif %}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge status-{{ request.status }}">
+                                        {{ request.status|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('approve_request', request_id=request.id) }}"
+                                       class="btn btn-success btn-sm btn-approve me-1"
+                                       data-bs-toggle="tooltip" title="Approve Request">
+                                        <i class="fas fa-check"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('deny_request', request_id=request.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-danger btn-sm btn-deny"
+                                                data-bs-toggle="tooltip" title="Deny Request">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% if request.is_call_out %}
+                            <tr id="callout-details-{{ request.id }}" class="callout-details-row" style="display: none;">
+                                <td colspan="6">
+                                    <div class="call-out-details">
+                                        <h6><i class="fas fa-phone-alt text-danger"></i> Call-Out Details</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <p><strong>Submitted Via:</strong>
+                                                    <span id="callout-source-{{ request.id }}">Loading...</span>
+                                                </p>
+                                                <p><strong>Phone Number:</strong>
+                                                    <span id="callout-phone-{{ request.id }}">Loading...</span>
+                                                </p>
+                                                <p><strong>Authentication:</strong>
+                                                    <span id="callout-auth-{{ request.id }}">Loading...</span>
+                                                </p>
+                                                <p><strong>Received At:</strong>
+                                                    <span id="callout-time-{{ request.id }}">Loading...</span>
+                                                </p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div id="callout-content-{{ request.id }}">
+                                                    <p class="text-muted">Loading call-out details...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <button class="btn btn-sm btn-secondary" onclick="toggleCallOutDetails({{ request.id }})">
+                                                <i class="fas fa-times"></i> Close
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
                             {% endif %}
-                            {{ request.pto_type }}
-                        </td>
-                        <td>
-                            {% if request.is_partial_day %}
-                                {{ "%.1f"|format(request.duration_hours) }} hrs
-                            {% else %}
-                                {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
-                            <br><small class="text-muted">{{ request.submitted_at.strftime('%I:%M %p') if request.submitted_at else '' }}</small>
-                        </td>
-                        <td>
-                            <span class="badge status-{{ request.status }}">
-                                {{ request.status|title }}
-                            </span>
-                        </td>
-                        <td>
-                            {% if request.status == 'pending' %}
-                                <a href="{{ url_for('approve_request', request_id=request.id) }}" 
-                                   class="btn btn-success btn-sm btn-approve me-1"
-                                   data-bs-toggle="tooltip" title="Approve Request">
-                                    <i class="fas fa-check"></i>
-                                </a>
-                                <form method="POST" action="{{ url_for('deny_request', request_id=request.id) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-danger btn-sm btn-deny"
-                                            data-bs-toggle="tooltip" title="Deny Request">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </form>
-                            {% else %}
-                                <small class="text-muted">No actions</small>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Pending PTO Requests</h5>
+                    <p class="text-muted">New requests will appear here for approval.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- In Progress Tab -->
+            <div class="tab-pane fade" id="in-progress" role="tabpanel">
+                {% if in_progress_requests %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Dates</th>
+                                <th>Type</th>
+                                <th>Checklist Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in in_progress_requests %}
+                            <tr>
+                                <td>
+                                    <strong>{{ request.member.name }}</strong><br>
+                                    <small class="text-muted">{{ request.member.position.name }}</small>
+                                </td>
+                                <td>
+                                    {{ request.start_date }} to {{ request.end_date }}
+                                    {% if request.is_partial_day %}
+                                    <br><small class="text-muted">
+                                        <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                </td>
+                                <td>
+                                    <div>
+                                        <i class="fas fa-{% if request.timekeeping_entered %}check-circle text-success{% else %}circle text-muted{% endif %}"></i>
+                                        Timekeeping {{ 'Entered' if request.timekeeping_entered else 'Pending' }}
+                                    </div>
+                                    <div>
+                                        <i class="fas fa-{% if request.coverage_arranged %}check-circle text-success{% else %}circle text-muted{% endif %}"></i>
+                                        Coverage {{ 'Arranged' if request.coverage_arranged else 'Pending' }}
+                                    </div>
+                                    {% set progress = (request.timekeeping_entered|int + request.coverage_arranged|int) * 50 %}
+                                    <div class="progress mt-2" style="height: 20px;">
+                                        <div class="progress-bar bg-{% if progress == 100 %}success{% elif progress > 0 %}warning{% else %}secondary{% endif %}"
+                                             role="progressbar" style="width: {{ progress }}%">
+                                            {{ progress }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('workqueue_in_progress') }}" class="btn btn-sm btn-warning"
+                                       data-bs-toggle="tooltip" title="Manage Checklist">
+                                        <i class="fas fa-tasks"></i> Manage
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No In Progress Requests</h5>
+                    <p class="text-muted">Approved requests with pending checklist items will appear here.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Approved Tab -->
+            <div class="tab-pane fade" id="approved" role="tabpanel">
+                {% if approved_requests %}
+                <!-- Filter Controls for Approved -->
+                <div class="filter-buttons">
+                    <div class="btn-group" role="group" aria-label="Filter approved requests">
+                        <input type="radio" class="btn-check" name="approvedFilter" id="filterAllApproved" value="all" checked autocomplete="off">
+                        <label class="btn btn-outline-primary" for="filterAllApproved">
+                            All Requests <span class="filter-badge badge bg-primary" id="countAllApproved">{{ approved_requests|length }}</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="approvedFilter" id="filterPTOApproved" value="pto" autocomplete="off">
+                        <label class="btn btn-outline-success" for="filterPTOApproved">
+                            PTO Only <span class="filter-badge badge bg-success" id="countPTOApproved">0</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="approvedFilter" id="filterCallOutApproved" value="callout" autocomplete="off">
+                        <label class="btn btn-outline-danger" for="filterCallOutApproved">
+                            Call-Outs Only <span class="filter-badge badge bg-danger" id="countCallOutApproved">0</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Dates</th>
+                                <th>Type</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in approved_requests %}
+                            {% set is_upcoming = request.start_date > now().strftime('%Y-%m-%d') %}
+                            {% set is_current = request.start_date <= now().strftime('%Y-%m-%d') and request.end_date >= now().strftime('%Y-%m-%d') %}
+                            <tr class="{% if is_current %}table-info{% elif is_upcoming %}table-light{% endif %} approved-request-row" data-request-type="{% if request.is_call_out %}callout{% else %}pto{% endif %}">
+                                <td>
+                                    <strong>{{ request.member.name }}</strong><br>
+                                    <small class="text-muted">{{ request.member.position.name }}</small>
+                                </td>
+                                <td>
+                                    {{ request.start_date }} to {{ request.end_date }}
+                                    {% if request.is_partial_day %}
+                                    <br><small class="text-muted">
+                                        <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.is_call_out %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.get_pto_breakdown %}
+                                        {% set breakdown = request.get_pto_breakdown() %}
+                                        {{ breakdown.business_days }}
+                                    {% else %}
+                                        {{ request.duration_days }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if is_current %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-play-circle"></i> Active
+                                        </span>
+                                    {% elif is_upcoming %}
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-calendar-check"></i> Upcoming
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Approved
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('workqueue_approved') }}" class="btn btn-sm btn-info"
+                                       data-bs-toggle="tooltip" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-check-circle fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Approved Requests</h5>
+                    <p class="text-muted">Fully approved PTO requests will appear here.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Employee Registrations Tab -->
+            <div class="tab-pane fade" id="employees-registrations" role="tabpanel">
+                {% if pending_employees %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Position</th>
+                                <th>Submitted</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employee in pending_employees %}
+                            <tr>
+                                <td>{{ employee.name }}</td>
+                                <td>{{ employee.email }}</td>
+                                <td>{{ employee.position }}</td>
+                                <td>{{ employee.submitted_at.strftime('%m/%d/%Y') }}</td>
+                                <td>
+                                    <a href="{{ url_for('approve_employee', employee_id=employee.id) }}"
+                                       class="btn btn-success btn-sm me-1"
+                                       data-bs-toggle="tooltip" title="Approve Employee">
+                                        <i class="fas fa-check"></i> Approve
+                                    </a>
+                                    <form method="POST" action="{{ url_for('deny_employee', employee_id=employee.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-danger btn-sm"
+                                                data-bs-toggle="tooltip" title="Deny Registration">
+                                            <i class="fas fa-times"></i> Deny
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Pending Employee Registrations</h5>
+                    <p class="text-muted">New employee registration requests will appear here.</p>
+                </div>
+                {% endif %}
+            </div>
         </div>
-        {% else %}
-        <div class="text-center py-5">
-            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">No PTO requests found</h5>
-            <p class="text-muted">Clinical team requests will appear here when submitted.</p>
-        </div>
-        {% endif %}
     </div>
 </div>
+
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
+    // Save active tab in localStorage
+    const tabs = document.querySelectorAll('.nav-tabs .nav-link');
+    tabs.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(e) {
+            localStorage.setItem('clinicalActiveTab', e.target.id);
+        });
+    });
+
+    // Restore active tab on page load
+    const activeTab = localStorage.getItem('clinicalActiveTab');
+    if (activeTab) {
+        const tab = document.getElementById(activeTab);
+        if (tab) {
+            const bsTab = new bootstrap.Tab(tab);
+            bsTab.show();
+        }
+    }
+
+    // Initialize filter counts
+    updateFilterCounts();
+
+    // Handle filter changes
+    const filterButtons = document.querySelectorAll('input[name="clinicalFilter"]');
+    filterButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            filterRequests(this.value);
+        });
+    });
+});
+
+function updateFilterCounts() {
+    const allRows = document.querySelectorAll('#pending-pto .request-row');
+    let ptoCount = 0;
+    let calloutCount = 0;
+
+    allRows.forEach(row => {
+        const type = row.getAttribute('data-request-type');
+        if (type === 'callout') {
+            calloutCount++;
+        } else {
+            ptoCount++;
+        }
+    });
+
+    document.getElementById('countAllClinical').textContent = allRows.length;
+    document.getElementById('countPTOClinical').textContent = ptoCount;
+    document.getElementById('countCallOutClinical').textContent = calloutCount;
+}
+
+function filterRequests(filterType) {
+    const allRows = document.querySelectorAll('#pending-pto .request-row');
+
+    allRows.forEach(row => {
+        const rowType = row.getAttribute('data-request-type');
+
+        if (filterType === 'all') {
+            row.style.display = '';
+        } else if (filterType === 'pto' && rowType === 'pto') {
+            row.style.display = '';
+        } else if (filterType === 'callout' && rowType === 'callout') {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function toggleCallOutDetails(requestId) {
+    const detailsRow = document.getElementById('callout-details-' + requestId);
+
+    if (detailsRow.style.display === 'none') {
+        // Show and load details
+        detailsRow.style.display = '';
+        loadCallOutDetails(requestId);
+    } else {
+        // Hide details
+        detailsRow.style.display = 'none';
+    }
+}
+
+function loadCallOutDetails(requestId) {
+    // Fetch call-out details via AJAX
+    fetch('/api/callout-details/' + requestId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const callout = data.callout;
+
+                // Update source badge
+                const sourceIcon = callout.source === 'phone' ? '<i class="fas fa-phone"></i> Phone Call' : '<i class="fas fa-sms"></i> Text Message';
+                const sourceBadgeClass = callout.source === 'phone' ? 'phone' : 'sms';
+                document.getElementById('callout-source-' + requestId).innerHTML =
+                    '<span class="call-out-badge ' + sourceBadgeClass + '">' + sourceIcon + '</span>';
+
+                // Update phone number
+                document.getElementById('callout-phone-' + requestId).textContent = callout.phone_number || 'N/A';
+
+                // Update authentication method
+                const authMethod = callout.authentication_method || 'Unknown';
+                const authDisplay = authMethod.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                document.getElementById('callout-auth-' + requestId).innerHTML =
+                    '<span class="auth-badge"><i class="fas fa-check-circle"></i> ' + authDisplay + '</span>';
+
+                // Update timestamp
+                document.getElementById('callout-time-' + requestId).textContent = callout.created_at || 'N/A';
+
+                // Update content (SMS only)
+                const contentDiv = document.getElementById('callout-content-' + requestId);
+                if (callout.source === 'sms' && callout.message_text) {
+                    contentDiv.innerHTML = `
+                        <div class="sms-message">
+                            <h6><i class="fas fa-comment"></i> SMS Message:</h6>
+                            <p class="mb-0">"${callout.message_text}"</p>
+                        </div>
+                    `;
+                } else {
+                    contentDiv.innerHTML = '<p class="text-muted">No additional details available.</p>';
+                }
+            } else {
+                alert('Failed to load call-out details: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading call-out details:', error);
+            alert('Error loading call-out details. Please try again.');
+        });
+}
+
+// Filter functionality for Approved tab
+document.addEventListener('DOMContentLoaded', function() {
+    // Update filter counts for approved tab
+    updateApprovedFilterCounts();
+
+    // Handle filter changes for approved tab
+    const approvedFilterButtons = document.querySelectorAll('input[name="approvedFilter"]');
+    approvedFilterButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            filterApprovedRequests(this.value);
+        });
+    });
+});
+
+function updateApprovedFilterCounts() {
+    const allRows = document.querySelectorAll('.approved-request-row');
+    let ptoCount = 0;
+    let calloutCount = 0;
+
+    allRows.forEach(row => {
+        const type = row.getAttribute('data-request-type');
+        if (type === 'callout') {
+            calloutCount++;
+        } else {
+            ptoCount++;
+        }
+    });
+
+    const countAllElement = document.getElementById('countAllApproved');
+    const countPTOElement = document.getElementById('countPTOApproved');
+    const countCallOutElement = document.getElementById('countCallOutApproved');
+
+    if (countAllElement) countAllElement.textContent = allRows.length;
+    if (countPTOElement) countPTOElement.textContent = ptoCount;
+    if (countCallOutElement) countCallOutElement.textContent = calloutCount;
+}
+
+function filterApprovedRequests(filterType) {
+    const allRows = document.querySelectorAll('.approved-request-row');
+
+    allRows.forEach(row => {
+        const rowType = row.getAttribute('data-request-type');
+
+        if (filterType === 'all') {
+            row.style.display = '';
+        } else if (filterType === 'pto' && rowType === 'pto') {
+            row.style.display = '';
+        } else if (filterType === 'callout' && rowType === 'callout') {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+</script>
 {% endblock %}

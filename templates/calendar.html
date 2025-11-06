@@ -65,6 +65,10 @@
                         <div class="legend-color bg-warning me-2"></div>
                         <span>Pending</span>
                     </div>
+                    <div class="d-flex align-items-center">
+                        <div class="legend-color bg-danger me-2"></div>
+                        <span>Call Out</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -180,14 +184,20 @@
 
 /* Status-specific styling */
 .status-approved {
-    background-color: #28a745;
-    border-color: #28a745;
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
 }
 
 .status-pending {
-    background-color: #ffc107;
-    border-color: #ffc107;
-    color: #000;
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+.status-callout {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: #fff !important;
 }
 
 
@@ -203,6 +213,10 @@
 
 .upcoming-event.pending {
     border-left-color: #ffc107;
+}
+
+.upcoming-event.callout {
+    border-left-color: #dc3545;
 }
 
 </style>
@@ -246,17 +260,28 @@ document.addEventListener('DOMContentLoaded', function() {
         dayMaxEvents: 3, // Show "more" link when too many events
         
         eventDidMount: function(info) {
-            // Add custom styling based on status
+            // Add custom styling based on call-out or status
+            const isCallOut = info.event.extendedProps.is_call_out;
             const status = info.event.extendedProps.status;
-            info.el.classList.add(`status-${status}`);
-            
+
+            if (isCallOut) {
+                info.el.classList.add('status-callout');
+            } else {
+                info.el.classList.add(`status-${status}`);
+            }
+
             // Add tooltip
-            info.el.setAttribute('title', 
-                `${info.event.extendedProps.employee}\n` +
-                `Type: ${info.event.extendedProps.type}\n` +
-                `Status: ${info.event.extendedProps.status.charAt(0).toUpperCase() + info.event.extendedProps.status.slice(1)}\n` +
-                `Duration: ${info.event.extendedProps.duration}`
-            );
+            const tooltipText = isCallOut
+                ? `Call Out - ${info.event.extendedProps.employee}\n` +
+                  `Type: ${info.event.extendedProps.type}\n` +
+                  `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}\n` +
+                  `Duration: ${info.event.extendedProps.duration}`
+                : `${info.event.extendedProps.employee}\n` +
+                  `Type: ${info.event.extendedProps.type}\n` +
+                  `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}\n` +
+                  `Duration: ${info.event.extendedProps.duration}`;
+
+            info.el.setAttribute('title', tooltipText);
         }
     });
     
@@ -280,20 +305,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const props = event.extendedProps;
         const startDate = new Date(event.start);
         const endDate = event.end ? new Date(event.end) : startDate;
-        
+
+        // Determine status badge class
+        const statusBadgeClass = props.is_call_out ? 'status-callout' : `status-${props.status}`;
+
         const detailsHtml = `
+            ${props.is_call_out ? `
+            <div class="alert alert-danger mb-3">
+                <strong><i class="fas fa-exclamation-circle me-2"></i>Call Out Request</strong>
+            </div>
+            ` : ''}
             <div class="row">
                 <div class="col-sm-4"><strong>Employee:</strong></div>
                 <div class="col-sm-8">${props.employee}</div>
             </div>
             <div class="row mt-2">
                 <div class="col-sm-4"><strong>Type:</strong></div>
-                <div class="col-sm-8">${props.type}</div>
+                <div class="col-sm-8">${props.type}${props.is_call_out ? ' (Call Out)' : ''}</div>
             </div>
             <div class="row mt-2">
                 <div class="col-sm-4"><strong>Status:</strong></div>
                 <div class="col-sm-8">
-                    <span class="badge status-${props.status}">${props.status.charAt(0).toUpperCase() + props.status.slice(1)}</span>
+                    <span class="badge ${statusBadgeClass}">${props.status.charAt(0).toUpperCase() + props.status.slice(1)}</span>
                 </div>
             </div>
             <div class="row mt-2">
@@ -315,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             ` : ''}
         `;
-        
+
         document.getElementById('eventDetails').innerHTML = detailsHtml;
         eventModal.show();
     }
@@ -325,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const now = new Date();
         const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
         
-        const upcomingEvents = events.filter(event => {
+        const upcomingEvents = filteredEvents.filter(event => {
             const eventDate = new Date(event.start);
             return eventDate >= now && eventDate <= nextWeek;
         }).sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -343,13 +376,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         upcomingContainer.innerHTML = upcomingEvents.map(event => {
             const startDate = new Date(event.start);
+            const isCallOut = event.extendedProps.is_call_out;
+            const statusClass = isCallOut ? 'callout' : event.extendedProps.status;
+            const badgeClass = isCallOut ? 'status-callout' : `status-${event.extendedProps.status}`;
+            const title = isCallOut ? `Call Out - ${event.extendedProps.employee}` : event.extendedProps.employee;
+
             return `
                 <div class="col-md-6 mb-3">
-                    <div class="upcoming-event ${event.extendedProps.status}">
-                        <strong>${event.extendedProps.employee}</strong><br>
-                        <small class="text-muted">${event.extendedProps.type}</small><br>
+                    <div class="upcoming-event ${statusClass}">
+                        <strong>${title}</strong><br>
+                        <small class="text-muted">${event.extendedProps.type}${isCallOut ? ' (Call Out)' : ''}</small><br>
                         <small>${startDate.toLocaleDateString()} • ${event.extendedProps.duration}${event.extendedProps.is_partial_day ? '' : ' days'}</small><br>
-                        <span class="badge status-${event.extendedProps.status} mt-1">${event.extendedProps.status.charAt(0).toUpperCase() + event.extendedProps.status.slice(1)}</span>
+                        <span class="badge ${badgeClass} mt-1">${event.extendedProps.status.charAt(0).toUpperCase() + event.extendedProps.status.slice(1)}</span>
                     </div>
                 </div>
             `;
@@ -387,42 +425,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('positionFilter').value = '';
         applyFilters();
     });
-    
-    // Update populateUpcomingEvents to use filtered events
-    function populateUpcomingEvents() {
-        const now = new Date();
-        const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        
-        const upcomingEvents = filteredEvents.filter(event => {
-            const eventDate = new Date(event.start);
-            return eventDate >= now && eventDate <= nextWeek;
-        }).sort((a, b) => new Date(a.start) - new Date(b.start));
-        
-        const upcomingContainer = document.getElementById('upcomingEvents');
-        
-        if (upcomingEvents.length === 0) {
-            upcomingContainer.innerHTML = `
-                <div class="col-12">
-                    <p class="text-muted text-center">No upcoming PTO in the next 7 days</p>
-                </div>
-            `;
-            return;
-        }
-        
-        upcomingContainer.innerHTML = upcomingEvents.map(event => {
-            const startDate = new Date(event.start);
-            return `
-                <div class="col-md-6 mb-3">
-                    <div class="upcoming-event ${event.extendedProps.status}">
-                        <strong>${event.extendedProps.employee}</strong><br>
-                        <small class="text-muted">${event.extendedProps.type}</small><br>
-                        <small>${startDate.toLocaleDateString()} • ${event.extendedProps.duration}${event.extendedProps.is_partial_day ? '' : ' days'}</small><br>
-                        <span class="badge status-${event.extendedProps.status} mt-1">${event.extendedProps.status.charAt(0).toUpperCase() + event.extendedProps.status.slice(1)}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
 });
 </script>
 {% endblock %}

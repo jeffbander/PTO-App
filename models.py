@@ -1,7 +1,17 @@
 from database import db
 from datetime import datetime
+import pytz
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Boolean, Numeric, Date
 from sqlalchemy.orm import relationship
+
+# Define Eastern timezone
+EASTERN = pytz.timezone('US/Eastern')
+
+def get_eastern_time():
+    """Get current time in Eastern timezone as naive datetime"""
+    eastern_now = datetime.now(EASTERN)
+    # Return naive datetime (no timezone info) but in Eastern time
+    return eastern_now.replace(tzinfo=None)
 
 class User(db.Model):
     """Base user class"""
@@ -10,9 +20,12 @@ class User(db.Model):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     email = Column(String(120), unique=True, nullable=False)
-    pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours
+    phone = Column(String(20), nullable=True)  # Phone number field
+    pin = Column(String(4), nullable=True)  # 4-digit PIN for phone authentication via Twilio
+    pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours (vacation/personal)
+    sick_balance_hours = Column(Numeric(5,2), default=60.0)  # Sick time balance in hours (separate from PTO)
     pto_refresh_date = Column(Date, default=datetime(2025, 1, 1).date())    # Annual refresh date
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_eastern_time)
     
     def __init__(self, name=None, email=None, **kwargs):
         super().__init__(**kwargs)
@@ -23,18 +36,31 @@ class User(db.Model):
     
     @property
     def pto_balance_days(self):
-        """Convert hours to days (7.5 hours = 1 day)"""
+        """Convert PTO hours to days (7.5 hours = 1 day)"""
         return round(float(self.pto_balance_hours) / 7.5, 1)
-    
+
+    @property
+    def sick_balance_days(self):
+        """Convert sick hours to days (7.5 hours = 1 day)"""
+        return round(float(self.sick_balance_hours) / 7.5, 1)
+
     def get_remaining_pto_hours(self):
         """Calculate remaining PTO hours - balance is now deducted immediately upon approval"""
         # PTO balance is now deducted immediately upon approval, so just return current balance
         # Note: Balance already reflects deducted hours from approved/in-progress requests
         return max(0, float(self.pto_balance_hours))
-    
+
     def get_remaining_pto_days(self):
         """Calculate remaining PTO in days"""
         return round(self.get_remaining_pto_hours() / 7.5, 1)
+
+    def get_remaining_sick_hours(self):
+        """Calculate remaining sick time hours"""
+        return max(0, float(self.sick_balance_hours))
+
+    def get_remaining_sick_days(self):
+        """Calculate remaining sick time in days"""
+        return round(self.get_remaining_sick_hours() / 7.5, 1)
     
     def refresh_pto_balance(self, new_balance_hours=60.0):
         """Reset PTO balance to new amount (usually done annually)"""
@@ -53,6 +79,9 @@ class Position(db.Model):
 
     def __repr__(self):
         return f'<Position {self.name}>'
+
+    def __str__(self):
+        return self.name
 
 class TeamMember(User):
     """Team member inherits from User"""
@@ -132,7 +161,7 @@ class PTORequest(db.Model):
     start_date = Column(String(10), nullable=False)  # YYYY-MM-DD format
     end_date = Column(String(10), nullable=False)
     pto_type = Column(String(50), nullable=False)  # vacation, sick, etc.
-    status = Column(String(20), default='pending')  # pending, approved, in_progress, denied, completed
+    status = Column(String(20), default='pending')  # pending, in_progress, approved, denied, completed
     manager_team = Column(String(20), nullable=False)  # which manager should handle this
     denial_reason = Column(Text)
     
@@ -141,20 +170,24 @@ class PTORequest(db.Model):
     start_time = Column(String(8))  # HH:MM format for partial days
     end_time = Column(String(8))  # HH:MM format for partial days
     reason = Column(Text)  # Optional reason (especially for partial days)
+
+    # Call Out tracking
+    is_call_out = Column(Boolean, default=False)  # True for call-out (today only) requests
     
     # Workflow tracking
-    timekeeping_complete = Column(String(3), default='No')  # Yes/No
-    coverage_arranged = Column(String(3), default='No')  # Yes/No
-    workflow_complete = Column(String(3), default='No')  # Yes/No
+    timekeeping_entered = Column(Boolean, default=False)  # Checkbox for timekeeping
+    coverage_arranged = Column(Boolean, default=False)  # Checkbox for coverage
+    approved_date = Column(DateTime)  # When request was first approved
+    completed_date = Column(DateTime)  # When PTO period ended
     
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    submitted_at = Column(DateTime, default=datetime.utcnow)  # For tracking submission time
+    created_at = Column(DateTime, default=get_eastern_time)
+    updated_at = Column(DateTime, default=get_eastern_time, onupdate=get_eastern_time)
+    submitted_at = Column(DateTime, default=get_eastern_time)  # For tracking submission time
     
-    def __init__(self, member=None, start_date=None, end_date=None, pto_type=None, 
-                 manager_team=None, status='pending', coverage_arranged='No', 
-                 timekeeping_complete='No', workflow_complete='No', is_partial_day=False,
-                 start_time=None, end_time=None, reason=None, **kwargs):
+    def __init__(self, member=None, start_date=None, end_date=None, pto_type=None,
+                 manager_team=None, status='pending', coverage_arranged=False,
+                 timekeeping_entered=False, is_partial_day=False,
+                 start_time=None, end_time=None, reason=None, is_call_out=False, **kwargs):
         super().__init__(**kwargs)
         if member:
             self.member = member
@@ -168,46 +201,80 @@ class PTORequest(db.Model):
             self.manager_team = manager_team
         self.status = status
         self.coverage_arranged = coverage_arranged
-        self.timekeeping_complete = timekeeping_complete
-        self.workflow_complete = workflow_complete
+        self.timekeeping_entered = timekeeping_entered
         self.is_partial_day = is_partial_day
         self.start_time = start_time
         self.end_time = end_time
         self.reason = reason
+        self.is_call_out = is_call_out
     
     # Relationships
     member = relationship("TeamMember", back_populates="pto_requests")
     
     @property
     def duration_days(self):
-        """Calculate duration in days"""
+        """Calculate duration in business days (excludes weekends and holidays)"""
         try:
-            start = datetime.strptime(self.start_date, '%Y-%m-%d')
-            end = datetime.strptime(self.end_date, '%Y-%m-%d')
-            return (end - start).days + 1
-        except (ValueError, TypeError):
-            return 1
+            from business_days import calculate_pto_days
+            return calculate_pto_days(self.start_date, self.end_date)
+        except (ValueError, TypeError, ImportError):
+            # Fallback to calendar days if business_days module fails
+            try:
+                start = datetime.strptime(self.start_date, '%Y-%m-%d')
+                end = datetime.strptime(self.end_date, '%Y-%m-%d')
+                return (end - start).days + 1
+            except (ValueError, TypeError):
+                return 1
     
     @property
     def duration_hours(self):
-        """Calculate duration in hours (7.5 hours = 1 full day)"""
+        """Calculate duration in hours (7.5 hours = 1 business day)"""
         try:
             if self.is_partial_day and self.start_time and self.end_time:
                 # Calculate partial day hours
                 start_hour, start_min = map(int, self.start_time.split(':'))
                 end_hour, end_min = map(int, self.end_time.split(':'))
-                
+
                 start_minutes = start_hour * 60 + start_min
                 end_minutes = end_hour * 60 + end_min
-                
+
                 total_minutes = end_minutes - start_minutes
                 return round(total_minutes / 60, 2)
             else:
-                # Full day calculation: 7.5 hours per day
+                # Full day calculation: 7.5 hours per business day
                 return self.duration_days * 7.5
         except:
             return 7.5
-    
+
+    def get_pto_breakdown(self):
+        """Get detailed breakdown of PTO request including holidays and weekends"""
+        try:
+            from business_days import get_pto_breakdown
+            return get_pto_breakdown(self.start_date, self.end_date)
+        except (ImportError, ValueError, TypeError):
+            # Fallback breakdown
+            try:
+                start = datetime.strptime(self.start_date, '%Y-%m-%d')
+                end = datetime.strptime(self.end_date, '%Y-%m-%d')
+                total_days = (end - start).days + 1
+                return {
+                    'total_days': total_days,
+                    'business_days': total_days,  # Fallback assumes all are business days
+                    'weekend_days': 0,
+                    'holiday_days': 0,
+                    'holidays_list': [],
+                    'weekends_list': []
+                }
+            except (ValueError, TypeError):
+                return {
+                    'total_days': 1,
+                    'business_days': 1,
+                    'weekend_days': 0,
+                    'holiday_days': 0,
+                    'holidays_list': [],
+                    'weekends_list': []
+                }
+
     def __repr__(self):
         return f'<PTORequest {self.id} - {self.member.name if self.member else "Unknown"} - {self.status}>'
 
@@ -221,7 +288,7 @@ class PendingEmployee(db.Model):
     team = Column(String(20), nullable=False)  # 'admin' or 'clinical'
     position = Column(String(50), nullable=False)
     status = Column(String(20), default='pending')  # pending, approved, denied
-    submitted_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, default=get_eastern_time)
     approved_at = Column(DateTime)
     approved_by_id = Column(Integer, ForeignKey('managers.id'))
     denial_reason = Column(Text)
@@ -242,6 +309,46 @@ class PendingEmployee(db.Model):
     
     # Relationship to approving manager
     approved_by = relationship("Manager", foreign_keys=[approved_by_id])
-    
+
     def __repr__(self):
         return f'<PendingEmployee {self.name} - {self.status}>'
+
+class CallOutRecord(db.Model):
+    """Model for tracking SMS call-out submissions via Twilio"""
+    __tablename__ = 'call_out_records'
+
+    id = Column(Integer, primary_key=True)
+    member_id = Column(Integer, ForeignKey('team_members.id'), nullable=False)
+    pto_request_id = Column(Integer, ForeignKey('pto_requests.id'), nullable=True)
+
+    # Twilio tracking information
+    call_sid = Column(String(100), nullable=True)  # Twilio message SID
+
+    # Call-out metadata
+    source = Column(String(10), nullable=False)  # 'sms'
+    phone_number_used = Column(String(20), nullable=False)  # Sender's phone number
+    verified = Column(Boolean, default=False)  # Whether authentication succeeded
+    authentication_method = Column(String(20), nullable=True)  # 'phone_match' or 'manual'
+
+    # Message content
+    message_text = Column(Text, nullable=True)  # SMS text message
+
+    # Timestamps
+    created_at = Column(DateTime, default=get_eastern_time)
+    processed_at = Column(DateTime, nullable=True)
+
+    def __init__(self, member_id=None, source=None, phone_number_used=None, **kwargs):
+        super().__init__(**kwargs)
+        if member_id:
+            self.member_id = member_id
+        if source:
+            self.source = source
+        if phone_number_used:
+            self.phone_number_used = phone_number_used
+
+    # Relationships
+    member = relationship("TeamMember", backref="call_out_records")
+    pto_request = relationship("PTORequest", backref="call_out_record", uselist=False)
+
+    def __repr__(self):
+        return f'<CallOutRecord {self.id} - {self.source} - {self.member.name if self.member else "Unknown"}>'
