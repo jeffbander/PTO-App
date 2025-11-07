@@ -18,7 +18,12 @@ app.secret_key = os.environ.get("SESSION_SECRET", "default_secret_key_for_develo
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configure the database
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///pto_tracker.db")
+# Handle Vercel Postgres URL format (postgres:// -> postgresql://)
+database_url = os.environ.get("DATABASE_URL", "sqlite:///pto_tracker.db")
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
