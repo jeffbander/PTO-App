@@ -83,7 +83,7 @@ class TwilioSMSService:
 
         if authenticated and member and request_id:
             response.message(
-                f"Call-out APPROVED, {member.name}. Request #{request_id} has been automatically approved and your sick time has been deducted. Your manager has been notified. Feel better!"
+                f"Call-out APPROVED, {member.name}. Your request has been automatically approved and your sick time has been deducted. Your manager has been notified. Feel better!"
             )
         elif not authenticated:
             response.message(
@@ -167,7 +167,7 @@ class TwilioSMSService:
             return False
 
         try:
-            message_body = f"Call-out APPROVED, {employee_name}. Request #{request_id} has been automatically approved and your sick time has been deducted. Your manager has been notified. Feel better!"
+            message_body = f"Call-out APPROVED, {employee_name}. Your request has been automatically approved and your sick time has been deducted. Your manager has been notified. Feel better!"
             message = self.client.messages.create(
                 body=message_body,
                 from_=self.sms_number,
@@ -186,7 +186,7 @@ class TwilioSMSService:
 
         try:
             message = self.client.messages.create(
-                body=f"FYI: {employee_name} called out sick today. Request #{request_id} has been AUTO-APPROVED. Sick time deducted. Check email for details.",
+                body=f"FYI: {employee_name} called out sick today. AUTO-APPROVED. Sick time deducted. Check email for details.",
                 from_=self.sms_number,
                 to=manager_number
             )
