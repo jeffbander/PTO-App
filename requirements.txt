@@ -1,0 +1,28 @@
+# MSW CVI PTO Tracker - Python Dependencies
+
+# Core Flask Framework
+Flask>=2.3.0
+Flask-SQLAlchemy>=3.0.0
+
+# Database
+SQLAlchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# Authentication & Security
+Werkzeug>=2.3.0
+
+# Environment Configuration
+python-dotenv>=1.0.0
+
+# Timezone Support
+pytz>=2023.3
+
+# Twilio SDK for Call-Out Feature
+twilio>=8.10.0
+
+# Email Support (if using SMTP)
+# These are built into Python, no additional packages needed
+
+# Development/Testing (optional)
+# pytest>=7.4.0
+# pytest-flask>=1.2.0
