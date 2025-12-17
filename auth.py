@@ -59,7 +59,7 @@ def create_default_passwords():
     default_passwords = {
         'lauryn.padron@mountsinai.org': 'Carlostylermila5!',
         'ashley.stark@mountsinai.org': 'Heart123!',
-        'superadmin@mswcvi.com': 'Password123'
+        'htn.prevention@mountsinai.org': 'Password123'
     }
 
     for email, password in default_passwords.items():
