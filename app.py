@@ -34,6 +34,42 @@ def initialize_database():
         # db.drop_all()  # COMMENTED OUT - Enable ONLY to update schema during development
         db.create_all()
 
+        # Add new columns to team_members table if they don't exist (for Leadership feature)
+        try:
+            from sqlalchemy import text
+            # Check if columns exist and add them if not (PostgreSQL compatible)
+            db.session.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='team_members' AND column_name='password_hash') THEN
+                        ALTER TABLE team_members ADD COLUMN password_hash VARCHAR(256);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='team_members' AND column_name='role') THEN
+                        ALTER TABLE team_members ADD COLUMN role VARCHAR(30);
+                    END IF;
+                END $$;
+            """))
+            db.session.commit()
+            print("Database migration for Leadership columns completed")
+        except Exception as e:
+            # SQLite doesn't support DO blocks, try SQLite-compatible migration
+            try:
+                db.session.rollback()
+                # For SQLite - check columns differently
+                result = db.session.execute(text("PRAGMA table_info(team_members)"))
+                columns = [row[1] for row in result.fetchall()]
+                if 'password_hash' not in columns:
+                    db.session.execute(text("ALTER TABLE team_members ADD COLUMN password_hash VARCHAR(256)"))
+                if 'role' not in columns:
+                    db.session.execute(text("ALTER TABLE team_members ADD COLUMN role VARCHAR(30)"))
+                db.session.commit()
+                print("SQLite migration for Leadership columns completed")
+            except Exception as e2:
+                db.session.rollback()
+                print(f"Migration note: {e2}")
+
         # Initialize positions if they don't exist
         positions_to_create = [
             {'name': 'APP', 'team': 'clinical'},
