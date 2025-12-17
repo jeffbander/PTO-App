@@ -69,7 +69,7 @@ def initialize_database():
             },
             {
                 'name': 'Samantha Zakow',
-                'email': 'samantha.zakow@mountsinai.org',
+                'email': 'superadmin@mswcvi.com',
                 'role': 'superadmin',
                 'password': 'Password123'
             }
