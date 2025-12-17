@@ -1,7 +1,7 @@
 from flask import session, request, redirect, url_for, flash
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
-from models import Manager, TeamMember
+from models import Manager
 
 def roles_required(*roles):
     def wrapper(fn):
@@ -17,22 +17,8 @@ def roles_required(*roles):
     return wrapper
 
 def get_current_user():
-    """Get the current logged-in user (TeamMember with role or Manager)"""
+    """Get the current logged-in user from Manager table"""
     if 'user_id' in session:
-        try:
-            # Check TeamMember first (Leadership)
-            member = TeamMember.query.get(session['user_id'])
-            if member:
-                # Check if this is a Leadership member with role
-                try:
-                    if member.role:
-                        return member
-                except:
-                    pass  # role column might not exist yet
-        except:
-            pass  # TeamMember query failed
-
-        # Fallback to Manager for backwards compatibility
         try:
             return Manager.query.get(session['user_id'])
         except:
@@ -49,7 +35,6 @@ def login_user(user):
     session['user_name'] = user.name
     session['user_email'] = user.email
     session['user_role'] = user.role
-    session['user_type'] = 'team_member' if isinstance(user, TeamMember) else 'manager'
     session.permanent = True
 
 def logout_user():
@@ -57,27 +42,13 @@ def logout_user():
     session.clear()
 
 def authenticate_user(email, password):
-    """Authenticate a user with email and password - checks TeamMember (Leadership) first"""
-    # First check TeamMember with role (Leadership members)
-    try:
-        member = TeamMember.query.filter_by(email=email).first()
-        if member:
-            try:
-                if member.role and member.password_hash and check_password_hash(member.password_hash, password):
-                    return member
-            except:
-                pass  # role/password_hash columns might not exist yet
-    except:
-        pass  # TeamMember query failed
-
-    # Fallback to Manager table for backwards compatibility
+    """Authenticate a user with email and password"""
     try:
         user = Manager.query.filter_by(email=email).first()
         if user and user.password_hash and check_password_hash(user.password_hash, password):
             return user
     except:
         pass
-
     return None
 
 def create_default_passwords():

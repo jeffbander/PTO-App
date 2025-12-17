@@ -34,42 +34,6 @@ def initialize_database():
         # db.drop_all()  # COMMENTED OUT - Enable ONLY to update schema during development
         db.create_all()
 
-        # Add new columns to team_members table if they don't exist (for Leadership feature)
-        try:
-            from sqlalchemy import text
-            # Check if columns exist and add them if not (PostgreSQL compatible)
-            db.session.execute(text("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='team_members' AND column_name='password_hash') THEN
-                        ALTER TABLE team_members ADD COLUMN password_hash VARCHAR(256);
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='team_members' AND column_name='role') THEN
-                        ALTER TABLE team_members ADD COLUMN role VARCHAR(30);
-                    END IF;
-                END $$;
-            """))
-            db.session.commit()
-            print("Database migration for Leadership columns completed")
-        except Exception as e:
-            # SQLite doesn't support DO blocks, try SQLite-compatible migration
-            try:
-                db.session.rollback()
-                # For SQLite - check columns differently
-                result = db.session.execute(text("PRAGMA table_info(team_members)"))
-                columns = [row[1] for row in result.fetchall()]
-                if 'password_hash' not in columns:
-                    db.session.execute(text("ALTER TABLE team_members ADD COLUMN password_hash VARCHAR(256)"))
-                if 'role' not in columns:
-                    db.session.execute(text("ALTER TABLE team_members ADD COLUMN role VARCHAR(30)"))
-                db.session.commit()
-                print("SQLite migration for Leadership columns completed")
-            except Exception as e2:
-                db.session.rollback()
-                print(f"Migration note: {e2}")
-
         # Initialize positions if they don't exist
         positions_to_create = [
             {'name': 'APP', 'team': 'clinical'},
@@ -78,8 +42,6 @@ def initialize_database():
             {'name': 'CVI Echo Techs', 'team': 'clinical'},
             {'name': 'Front Desk/Admin', 'team': 'admin'},
             {'name': 'CT Desk', 'team': 'admin'},
-            {'name': 'Leadership - Admin', 'team': 'admin'},
-            {'name': 'Leadership - Clinical', 'team': 'clinical'},
         ]
 
         for pos_data in positions_to_create:
@@ -89,69 +51,56 @@ def initialize_database():
                 db.session.add(new_pos)
         db.session.commit()
 
-        # Initialize default managers as Leadership TeamMembers (they can submit PTO and login)
+        # Initialize default managers in Manager table
         from werkzeug.security import generate_password_hash
-
-        # Get Leadership positions
-        leadership_admin = Position.query.filter_by(name='Leadership - Admin').first()
-        leadership_clinical = Position.query.filter_by(name='Leadership - Clinical').first()
 
         managers_to_create = [
             {
                 'name': 'Lauryn Padron',
                 'email': 'lauryn.padron@mountsinai.org',
                 'role': 'admin',
-                'password': 'Carlostylermila5!',
-                'position': leadership_admin
+                'password': 'Carlostylermila5!'
             },
             {
                 'name': 'Ashley Stark',
                 'email': 'ashley.stark@mountsinai.org',
                 'role': 'clinical',
-                'password': 'Heart123!',
-                'position': leadership_clinical
+                'password': 'Heart123!'
             },
             {
                 'name': 'Samantha Zakow',
                 'email': 'samantha.zakow@mountsinai.org',
                 'role': 'superadmin',
-                'password': 'Password123',
-                'position': leadership_admin  # Superadmin under admin leadership
+                'password': 'Password123'
             }
         ]
 
         for manager_data in managers_to_create:
-            # Check if this person already exists as a TeamMember
-            existing_member = TeamMember.query.filter_by(email=manager_data['email']).first()
+            # Check if manager already exists by email
+            existing_manager = Manager.query.filter_by(email=manager_data['email']).first()
 
-            if existing_member:
-                # Update existing TeamMember with login credentials
-                existing_member.name = manager_data['name']
-                existing_member.password_hash = generate_password_hash(manager_data['password'])
-                existing_member.role = manager_data['role']
-                if manager_data['position']:
-                    existing_member.position_id = manager_data['position'].id
-                print(f"Updated TeamMember {manager_data['name']} with leadership credentials")
+            if existing_manager:
+                # Update existing manager
+                existing_manager.name = manager_data['name']
+                existing_manager.password_hash = generate_password_hash(manager_data['password'])
+                existing_manager.role = manager_data['role']
+                print(f"Updated Manager {manager_data['name']}")
             else:
                 # Check if email exists as any other user type
                 existing_user = User.query.filter_by(email=manager_data['email']).first()
                 if existing_user:
-                    print(f"Warning: Cannot create {manager_data['role']} - email {manager_data['email']} already in use by another user type")
+                    print(f"Warning: Cannot create manager - email {manager_data['email']} already in use")
                     continue
 
-                # Create new TeamMember with leadership role
-                if manager_data['position']:
-                    new_member = TeamMember(
-                        name=manager_data['name'],
-                        email=manager_data['email'],
-                        position_id=manager_data['position'].id,
-                        password_hash=generate_password_hash(manager_data['password']),
-                        role=manager_data['role'],
-                        pto_balance_hours=60.0,
-                        sick_balance_hours=60.0
-                    )
-                    db.session.add(new_member)
-                    print(f"Created TeamMember {manager_data['name']} as {manager_data['role']} leadership")
+                # Create new manager
+                new_manager = Manager(
+                    name=manager_data['name'],
+                    email=manager_data['email'],
+                    role=manager_data['role'],
+                    password_hash=generate_password_hash(manager_data['password'])
+                )
+                db.session.add(new_manager)
+                print(f"Created Manager {manager_data['name']} as {manager_data['role']}")
 
         db.session.commit()
 

@@ -91,18 +91,10 @@ class TeamMember(User):
     position_id = Column(Integer, ForeignKey('positions.id'), nullable=False)
     position = relationship("Position")
 
-    # For Leadership team members who can also login
-    password_hash = Column(String(256), nullable=True)
-    role = Column(String(30), nullable=True)  # 'admin', 'clinical', 'superadmin', etc. - only for Leadership
-
-    def __init__(self, name=None, email=None, position_id=None, password_hash=None, role=None, **kwargs):
+    def __init__(self, name=None, email=None, position_id=None, **kwargs):
         super().__init__(name=name, email=email, **kwargs)
         if position_id:
             self.position_id = position_id
-        if password_hash:
-            self.password_hash = password_hash
-        if role:
-            self.role = role
     
     # Relationship to PTO requests
     pto_requests = relationship("PTORequest", back_populates="member")
