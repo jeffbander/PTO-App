@@ -1151,9 +1151,8 @@ def register_routes(app):
     @app.route('/change-password', methods=['GET', 'POST'])
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def change_password():
-        """Allow managers/leadership to change their password"""
+        """Allow managers to change their password"""
         from werkzeug.security import check_password_hash, generate_password_hash
-        from auth import get_current_user
         from database import db
 
         if request.method == 'POST':
@@ -1161,8 +1160,9 @@ def register_routes(app):
             new_password = request.form.get('new_password')
             confirm_password = request.form.get('confirm_password')
 
-            # Get current user (TeamMember or Manager)
-            user = get_current_user()
+            # Get current manager from session
+            user_id = session.get('user_id')
+            user = Manager.query.get(user_id)
             if not user:
                 flash('User not found.', 'error')
                 return redirect(url_for('change_password'))
