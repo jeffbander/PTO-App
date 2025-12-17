@@ -86,15 +86,23 @@ class Position(db.Model):
 class TeamMember(User):
     """Team member inherits from User"""
     __tablename__ = 'team_members'
-    
+
     id = Column(Integer, ForeignKey('users.id'), primary_key=True)
     position_id = Column(Integer, ForeignKey('positions.id'), nullable=False)
     position = relationship("Position")
-    
-    def __init__(self, name=None, email=None, position_id=None, **kwargs):
+
+    # For Leadership team members who can also login
+    password_hash = Column(String(256), nullable=True)
+    role = Column(String(30), nullable=True)  # 'admin', 'clinical', 'superadmin', etc. - only for Leadership
+
+    def __init__(self, name=None, email=None, position_id=None, password_hash=None, role=None, **kwargs):
         super().__init__(name=name, email=email, **kwargs)
         if position_id:
             self.position_id = position_id
+        if password_hash:
+            self.password_hash = password_hash
+        if role:
+            self.role = role
     
     # Relationship to PTO requests
     pto_requests = relationship("PTORequest", back_populates="member")
@@ -352,3 +360,41 @@ class CallOutRecord(db.Model):
 
     def __repr__(self):
         return f'<CallOutRecord {self.id} - {self.source} - {self.member.name if self.member else "Unknown"}>'
+
+class TardinessRecord(db.Model):
+    """Model for tracking employee tardiness"""
+    __tablename__ = 'tardiness_records'
+
+    id = Column(Integer, primary_key=True)
+    member_id = Column(Integer, ForeignKey('team_members.id'), nullable=False)
+
+    # Tardiness details
+    date = Column(String(10), nullable=False)  # YYYY-MM-DD format
+    minutes_late = Column(Integer, nullable=False)  # How many minutes late
+    reason = Column(Text, nullable=True)  # Optional reason/notes
+
+    # Who recorded it
+    recorded_by_id = Column(Integer, ForeignKey('managers.id'), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=get_eastern_time)
+
+    def __init__(self, member_id=None, date=None, minutes_late=None, reason=None, recorded_by_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if member_id:
+            self.member_id = member_id
+        if date:
+            self.date = date
+        if minutes_late:
+            self.minutes_late = minutes_late
+        if reason:
+            self.reason = reason
+        if recorded_by_id:
+            self.recorded_by_id = recorded_by_id
+
+    # Relationships
+    member = relationship("TeamMember", backref="tardiness_records")
+    recorded_by = relationship("Manager", foreign_keys=[recorded_by_id])
+
+    def __repr__(self):
+        return f'<TardinessRecord {self.id} - {self.member.name if self.member else "Unknown"} - {self.date}>'

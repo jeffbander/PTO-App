@@ -42,6 +42,8 @@ def initialize_database():
             {'name': 'CVI Echo Techs', 'team': 'clinical'},
             {'name': 'Front Desk/Admin', 'team': 'admin'},
             {'name': 'CT Desk', 'team': 'admin'},
+            {'name': 'Leadership - Admin', 'team': 'admin'},
+            {'name': 'Leadership - Clinical', 'team': 'clinical'},
         ]
 
         for pos_data in positions_to_create:
@@ -51,52 +53,69 @@ def initialize_database():
                 db.session.add(new_pos)
         db.session.commit()
 
-        # Initialize default managers if they don't exist
+        # Initialize default managers as Leadership TeamMembers (they can submit PTO and login)
         from werkzeug.security import generate_password_hash
-        
+
+        # Get Leadership positions
+        leadership_admin = Position.query.filter_by(name='Leadership - Admin').first()
+        leadership_clinical = Position.query.filter_by(name='Leadership - Clinical').first()
+
         managers_to_create = [
             {
-                'name': 'Admin Manager',
-                'email': 'admin.manager@mswcvi.com',
+                'name': 'Lauryn Padron',
+                'email': 'lauryn.padron@mountsinai.org',
                 'role': 'admin',
-                'password': 'admin123'
+                'password': 'Carlostylermila5!',
+                'position': leadership_admin
             },
             {
-                'name': 'Clinical Manager',
-                'email': 'clinical.manager@mswcvi.com', 
+                'name': 'Ashley Stark',
+                'email': 'ashley.stark@mountsinai.org',
                 'role': 'clinical',
-                'password': 'clinical123'
+                'password': 'Heart123!',
+                'position': leadership_clinical
             },
             {
-                'name': 'Super Admin',
-                'email': 'superadmin@mswcvi.com',
-                'role': 'superadmin', 
-                'password': 'super123'
-            },
-            {
-                'name': 'MOA Supervisor',
-                'email': 'moa.supervisor@mswcvi.com',
-                'role': 'moa_supervisor',
-                'password': 'moa123'
-            },
-            {
-                'name': 'Echo Tech Supervisor', 
-                'email': 'echo.supervisor@mswcvi.com',
-                'role': 'echo_supervisor',
-                'password': 'echo123'
+                'name': 'Samantha Zakow',
+                'email': 'samantha.zakow@mountsinai.org',
+                'role': 'superadmin',
+                'password': 'Password123',
+                'position': leadership_admin  # Superadmin under admin leadership
             }
         ]
-        
+
         for manager_data in managers_to_create:
-            existing_manager = Manager.query.filter_by(email=manager_data['email']).first()
-            if not existing_manager:
-                new_manager = Manager(
-                    name=manager_data['name'],
-                    email=manager_data['email'],
-                    role=manager_data['role'],
-                    password_hash=generate_password_hash(manager_data['password'])
-                )
-                db.session.add(new_manager)
+            # Check if this person already exists as a TeamMember
+            existing_member = TeamMember.query.filter_by(email=manager_data['email']).first()
+
+            if existing_member:
+                # Update existing TeamMember with login credentials
+                existing_member.name = manager_data['name']
+                existing_member.password_hash = generate_password_hash(manager_data['password'])
+                existing_member.role = manager_data['role']
+                if manager_data['position']:
+                    existing_member.position_id = manager_data['position'].id
+                print(f"Updated TeamMember {manager_data['name']} with leadership credentials")
+            else:
+                # Check if email exists as any other user type
+                existing_user = User.query.filter_by(email=manager_data['email']).first()
+                if existing_user:
+                    print(f"Warning: Cannot create {manager_data['role']} - email {manager_data['email']} already in use by another user type")
+                    continue
+
+                # Create new TeamMember with leadership role
+                if manager_data['position']:
+                    new_member = TeamMember(
+                        name=manager_data['name'],
+                        email=manager_data['email'],
+                        position_id=manager_data['position'].id,
+                        password_hash=generate_password_hash(manager_data['password']),
+                        role=manager_data['role'],
+                        pto_balance_hours=60.0,
+                        sick_balance_hours=60.0
+                    )
+                    db.session.add(new_member)
+                    print(f"Created TeamMember {manager_data['name']} as {manager_data['role']} leadership")
 
         db.session.commit()
 

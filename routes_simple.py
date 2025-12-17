@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from database import db
-from models import PTORequest, TeamMember, Manager, User, PendingEmployee, Position
+from models import PTORequest, TeamMember, Manager, User, PendingEmployee, Position, TardinessRecord
 from pto_system import PTOTrackerSystem
 from auth import roles_required, authenticate_user, login_user, logout_user, get_current_user
 from datetime import datetime
@@ -64,6 +64,8 @@ def register_routes(app):
     @roles_required('admin', 'superadmin')
     def admin_dashboard():
         """Admin dashboard"""
+        from datetime import datetime, timedelta
+
         # Get pending requests for admin team (using manager_team field)
         pending_requests = PTORequest.query.filter_by(status='pending', manager_team='admin').all()
 
@@ -76,39 +78,36 @@ def register_routes(app):
         # Get pending employee registrations for admin team
         pending_employees = PendingEmployee.query.filter_by(status='pending', team='admin').all()
 
-        # Get approved requests this month for admin team
-        from datetime import datetime, timedelta
-        current_month_start = get_eastern_time().replace(day=1)
-        approved_this_month = PTORequest.query.filter_by(status='approved', manager_team='admin').filter(
-            PTORequest.updated_at >= current_month_start
-        ).count()
+        # Get employees currently on PTO (approved requests where today is within the date range)
+        today_str = get_eastern_time().strftime('%Y-%m-%d')
+        currently_on_pto = PTORequest.query.filter_by(status='approved', manager_team='admin').filter(
+            PTORequest.start_date <= today_str,
+            PTORequest.end_date >= today_str
+        ).all()
 
-        # Get total and denied counts
-        total_requests = PTORequest.query.filter_by(manager_team='admin').count()
-        denied_requests = PTORequest.query.filter_by(status='denied', manager_team='admin').count()
-
-        stats = {
-            'pending': len(pending_requests),
-            'pending_employees': len(pending_employees),
-            'approved_this_month': approved_this_month,
-            'total': total_requests,
-            'denied': denied_requests,
-            'in_progress': len(in_progress_requests),
-            'approved': len(approved_requests)
-        }
+        # Get team employees (admin team only, excluding inactive)
+        admin_positions = Position.query.filter_by(team='admin').all()
+        admin_pos_ids = [p.id for p in admin_positions]
+        team_employees = TeamMember.query.filter(
+            TeamMember.position_id.in_(admin_pos_ids),
+            ~TeamMember.name.contains('[INACTIVE]')
+        ).order_by(TeamMember.name).all()
 
         return render_template('dashboard_admin.html',
                                requests=pending_requests,
                                approved_requests=approved_requests,
                                in_progress_requests=in_progress_requests,
                                pending_employees=pending_employees,
-                               stats=stats,
+                               currently_on_pto=currently_on_pto,
+                               team_employees=team_employees,
                                now=get_eastern_time)
 
     @app.route('/dashboard/clinical')
     @roles_required('clinical', 'superadmin')
     def clinical_dashboard():
         """Clinical dashboard"""
+        from datetime import datetime, timedelta
+
         # Get pending requests for clinical team (using manager_team field)
         pending_requests = PTORequest.query.filter_by(status='pending', manager_team='clinical').all()
 
@@ -121,33 +120,28 @@ def register_routes(app):
         # Get pending employee registrations for clinical team
         pending_employees = PendingEmployee.query.filter_by(status='pending', team='clinical').all()
 
-        # Get approved requests this month for clinical team
-        from datetime import datetime, timedelta
-        current_month_start = get_eastern_time().replace(day=1)
-        approved_this_month = PTORequest.query.filter_by(status='approved', manager_team='clinical').filter(
-            PTORequest.updated_at >= current_month_start
-        ).count()
+        # Get employees currently on PTO (approved requests where today is within the date range)
+        today_str = get_eastern_time().strftime('%Y-%m-%d')
+        currently_on_pto = PTORequest.query.filter_by(status='approved', manager_team='clinical').filter(
+            PTORequest.start_date <= today_str,
+            PTORequest.end_date >= today_str
+        ).all()
 
-        # Get total and denied counts
-        total_requests = PTORequest.query.filter_by(manager_team='clinical').count()
-        denied_requests = PTORequest.query.filter_by(status='denied', manager_team='clinical').count()
-
-        stats = {
-            'pending': len(pending_requests),
-            'pending_employees': len(pending_employees),
-            'approved_this_month': approved_this_month,
-            'total': total_requests,
-            'denied': denied_requests,
-            'in_progress': len(in_progress_requests),
-            'approved': len(approved_requests)
-        }
+        # Get team employees (clinical team only, excluding inactive)
+        clinical_positions = Position.query.filter_by(team='clinical').all()
+        clinical_pos_ids = [p.id for p in clinical_positions]
+        team_employees = TeamMember.query.filter(
+            TeamMember.position_id.in_(clinical_pos_ids),
+            ~TeamMember.name.contains('[INACTIVE]')
+        ).order_by(TeamMember.name).all()
 
         return render_template('dashboard_clinical.html',
                                requests=pending_requests,
                                approved_requests=approved_requests,
                                in_progress_requests=in_progress_requests,
                                pending_employees=pending_employees,
-                               stats=stats,
+                               currently_on_pto=currently_on_pto,
+                               team_employees=team_employees,
                                now=get_eastern_time)
 
     @app.route('/dashboard/superadmin')
@@ -470,6 +464,81 @@ def register_routes(app):
                 'error': str(e)
             })
 
+    @app.route('/api/holidays')
+    def get_holidays():
+        """API endpoint to get Mount Sinai official holidays for calendar display"""
+        try:
+            from business_days import get_holidays_for_calendar
+            holidays = get_holidays_for_calendar()
+            return jsonify(holidays)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/team-calendar/<team>')
+    def get_team_calendar(team):
+        """API endpoint to get team-specific calendar events"""
+        try:
+            # Get PTO requests for the specified team
+            requests = PTORequest.query.filter(
+                PTORequest.manager_team == team,
+                PTORequest.status.in_(['approved', 'pending'])
+            ).all()
+
+            calendar_events = []
+            for request in requests:
+                # Determine colors based on call-out status first, then regular status
+                if request.is_call_out:
+                    color = '#dc3545'  # Red for call-outs
+                    text_color = '#fff'
+                elif request.status == 'approved':
+                    color = '#28a745'  # Green for approved PTO
+                    text_color = '#fff'
+                elif request.status == 'pending':
+                    color = '#ffc107'  # Yellow for pending PTO
+                    text_color = '#000'
+                else:
+                    color = '#6c757d'  # Gray for other statuses
+                    text_color = '#fff'
+
+                # Calculate duration
+                try:
+                    duration = request.duration_days
+                except:
+                    duration = 1
+
+                # Build event title
+                if request.is_call_out:
+                    title = f"CALL OUT - {request.member.name}"
+                else:
+                    title = request.member.name
+
+                # Build event
+                event = {
+                    'id': request.id,
+                    'title': title,
+                    'start': request.start_date,
+                    'end': request.end_date,
+                    'color': color,
+                    'textColor': text_color,
+                    'allDay': True,
+                    'extendedProps': {
+                        'employee': request.member.name,
+                        'employee_position': request.member.position.name if request.member.position else '',
+                        'type': request.pto_type,
+                        'status': request.status,
+                        'is_call_out': request.is_call_out,
+                        'is_partial_day': request.is_partial_day,
+                        'duration': f"{duration} day{'s' if duration != 1 else ''}",
+                        'reason': request.reason or '',
+                        'team': request.manager_team
+                    }
+                }
+                calendar_events.append(event)
+
+            return jsonify(calendar_events)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/dashboard/moa_supervisor')
     @roles_required('moa_supervisor', 'superadmin')
     def moa_supervisor_dashboard():
@@ -485,8 +554,26 @@ def register_routes(app):
     @app.route('/employees')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def employees():
-        """Employee management page"""
-        team_members = TeamMember.query.all()
+        """Employee management page - filtered by user role"""
+        user_role = session.get('user_role')
+
+        # Filter employees based on user role
+        if user_role == 'superadmin':
+            # Superadmin sees all employees
+            team_members = TeamMember.query.all()
+        elif user_role == 'admin':
+            # Admin sees only admin team employees
+            admin_positions = Position.query.filter_by(team='admin').all()
+            admin_pos_ids = [p.id for p in admin_positions]
+            team_members = TeamMember.query.filter(TeamMember.position_id.in_(admin_pos_ids)).all()
+        elif user_role == 'clinical':
+            # Clinical sees only clinical team employees
+            clinical_positions = Position.query.filter_by(team='clinical').all()
+            clinical_pos_ids = [p.id for p in clinical_positions]
+            team_members = TeamMember.query.filter(TeamMember.position_id.in_(clinical_pos_ids)).all()
+        else:
+            # Default: show all (fallback)
+            team_members = TeamMember.query.all()
 
         # Calculate comprehensive statistics
         active_employees = [m for m in team_members if '[INACTIVE]' not in m.name]
@@ -592,6 +679,11 @@ def register_routes(app):
         else:
             days_until_refresh = None
 
+        # Get tardiness records for this employee
+        tardiness_records = TardinessRecord.query.filter_by(member_id=employee_id).order_by(TardinessRecord.date.desc()).all()
+        total_tardiness = len(tardiness_records)
+        total_tardiness_minutes = sum(r.minutes_late for r in tardiness_records)
+
         stats = {
             'total_requests': total_requests,
             'approved_requests': approved_requests,
@@ -602,10 +694,155 @@ def register_routes(app):
             'pending_callouts': pending_callouts,
             'total_pto_used': round(total_pto_used, 1),
             'total_callouts_used': round(total_callouts_used, 1),
-            'days_until_refresh': days_until_refresh
+            'days_until_refresh': days_until_refresh,
+            'total_tardiness': total_tardiness,
+            'total_tardiness_minutes': total_tardiness_minutes
         }
 
-        return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats)
+        return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats, tardiness_records=tardiness_records)
+
+    @app.route('/api/employee/<int:employee_id>/pto-events')
+    @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
+    def get_employee_pto_events(employee_id):
+        """API endpoint to get PTO events for a specific employee (for calendar view)"""
+        from datetime import timedelta
+
+        employee = TeamMember.query.get_or_404(employee_id)
+        requests = PTORequest.query.filter_by(member_id=employee_id).all()
+
+        events = []
+        for req in requests:
+            # Determine event color based on status
+            if req.is_call_out:
+                color = '#dc3545'  # Red for call-outs
+            elif req.status == 'approved':
+                color = '#28a745'  # Green
+            elif req.status == 'pending':
+                color = '#ffc107'  # Yellow
+            elif req.status == 'denied':
+                color = '#6c757d'  # Gray
+            else:
+                color = '#17a2b8'  # Info blue for other statuses
+
+            # Determine title
+            if req.is_call_out:
+                title = f"Call Out - {req.pto_type}"
+            else:
+                title = req.pto_type
+
+            # Calculate end date (FullCalendar uses exclusive end dates, so add 1 day)
+            try:
+                end_date = datetime.strptime(str(req.end_date), '%Y-%m-%d')
+                end_date_exclusive = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
+            except:
+                end_date_exclusive = str(req.end_date)
+
+            event = {
+                'id': req.id,
+                'title': title,
+                'start': str(req.start_date),
+                'end': end_date_exclusive,
+                'color': color,
+                'allDay': not req.is_partial_day,
+                'extendedProps': {
+                    'type': req.pto_type,
+                    'status': req.status,
+                    'duration': req.duration_days if not req.is_partial_day else f"{req.duration_hours} hours",
+                    'is_partial_day': req.is_partial_day,
+                    'is_call_out': req.is_call_out,
+                    'reason': req.reason or 'Not specified',
+                    'submitted': req.submitted_at.strftime('%m/%d/%Y') if req.submitted_at else 'N/A',
+                    'start_date': str(req.start_date),
+                    'end_date': str(req.end_date)
+                }
+            }
+
+            # For partial day requests, add time information
+            if req.is_partial_day and req.start_time and req.end_time:
+                event['start'] = f"{req.start_date}T{req.start_time}"
+                event['end'] = f"{req.end_date}T{req.end_time}"
+                event['title'] = f"{title} (Partial)"
+                event['allDay'] = False
+
+            events.append(event)
+
+        # Add tardiness events to the calendar
+        tardiness_records = TardinessRecord.query.filter_by(member_id=employee_id).all()
+        for record in tardiness_records:
+            event = {
+                'id': f'tardiness_{record.id}',
+                'title': f'Late ({record.minutes_late} min)',
+                'start': record.date,
+                'end': record.date,
+                'color': '#fd7e14',  # Orange for tardiness
+                'allDay': True,
+                'extendedProps': {
+                    'type': 'Tardiness',
+                    'status': 'recorded',
+                    'duration': f'{record.minutes_late} minutes',
+                    'is_partial_day': False,
+                    'is_call_out': False,
+                    'is_tardiness': True,
+                    'reason': record.reason or 'Not specified',
+                    'submitted': record.created_at.strftime('%m/%d/%Y') if record.created_at else 'N/A',
+                    'start_date': record.date,
+                    'end_date': record.date
+                }
+            }
+            events.append(event)
+
+        return jsonify(events)
+
+    @app.route('/api/employee/<int:employee_id>/tardiness', methods=['POST'])
+    @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
+    def add_tardiness(employee_id):
+        """API endpoint to add a tardiness record for an employee"""
+        employee = TeamMember.query.get_or_404(employee_id)
+
+        data = request.get_json() if request.is_json else request.form
+
+        date = data.get('date')
+        minutes_late = data.get('minutes_late')
+        reason = data.get('reason', '')
+
+        if not date or not minutes_late:
+            return jsonify({'error': 'Date and minutes late are required'}), 400
+
+        try:
+            minutes_late = int(minutes_late)
+        except ValueError:
+            return jsonify({'error': 'Minutes late must be a number'}), 400
+
+        # Get current manager ID if logged in
+        manager_id = session.get('user_id')
+
+        tardiness = TardinessRecord(
+            member_id=employee_id,
+            date=date,
+            minutes_late=minutes_late,
+            reason=reason,
+            recorded_by_id=manager_id
+        )
+
+        db.session.add(tardiness)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Tardiness recorded for {employee.name}',
+            'id': tardiness.id
+        })
+
+    @app.route('/api/employee/<int:employee_id>/tardiness/<int:tardiness_id>', methods=['DELETE'])
+    @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
+    def delete_tardiness(employee_id, tardiness_id):
+        """API endpoint to delete a tardiness record"""
+        tardiness = TardinessRecord.query.filter_by(id=tardiness_id, member_id=employee_id).first_or_404()
+
+        db.session.delete(tardiness)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Tardiness record deleted'})
 
     @app.route('/employee/edit/<int:employee_id>', methods=['GET', 'POST'])
     @roles_required('admin', 'clinical', 'superadmin')
@@ -908,6 +1145,49 @@ def register_routes(app):
         logout_user()
         flash('You have been logged out.', 'success')
         return redirect(url_for('index'))
+
+    @app.route('/change-password', methods=['GET', 'POST'])
+    @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
+    def change_password():
+        """Allow managers/leadership to change their password"""
+        from werkzeug.security import check_password_hash, generate_password_hash
+        from auth import get_current_user
+        from database import db
+
+        if request.method == 'POST':
+            current_password = request.form.get('current_password')
+            new_password = request.form.get('new_password')
+            confirm_password = request.form.get('confirm_password')
+
+            # Get current user (TeamMember or Manager)
+            user = get_current_user()
+            if not user:
+                flash('User not found.', 'error')
+                return redirect(url_for('change_password'))
+
+            # Validate current password
+            if not check_password_hash(user.password_hash, current_password):
+                flash('Current password is incorrect.', 'error')
+                return redirect(url_for('change_password'))
+
+            # Validate new password length
+            if len(new_password) < 8:
+                flash('New password must be at least 8 characters long.', 'error')
+                return redirect(url_for('change_password'))
+
+            # Validate passwords match
+            if new_password != confirm_password:
+                flash('New passwords do not match.', 'error')
+                return redirect(url_for('change_password'))
+
+            # Update password
+            user.password_hash = generate_password_hash(new_password)
+            db.session.commit()
+
+            flash('Password changed successfully!', 'success')
+            return redirect(url_for('dashboard'))
+
+        return render_template('change_password.html')
 
     @app.errorhandler(404)
     def not_found_error(error):
