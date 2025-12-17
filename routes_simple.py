@@ -958,15 +958,16 @@ def register_routes(app):
     def approve_employee(employee_id):
         """Approve a pending employee registration"""
         pending_employee = PendingEmployee.query.get_or_404(employee_id)
-        current_user = get_current_user()
+        user_role = session.get('user_role', '')
+        user_id = session.get('user_id')
 
         # Check permissions
         can_approve = False
-        if current_user.role == 'superadmin':
+        if user_role == 'superadmin':
             can_approve = True
-        elif current_user.role == 'admin' and pending_employee.team == 'admin':
+        elif user_role == 'admin' and pending_employee.team == 'admin':
             can_approve = True
-        elif current_user.role == 'clinical' and pending_employee.team == 'clinical':
+        elif user_role == 'clinical' and pending_employee.team == 'clinical':
             can_approve = True
 
         if not can_approve:
@@ -991,7 +992,7 @@ def register_routes(app):
         # Update pending employee status
         pending_employee.status = 'approved'
         pending_employee.approved_at = get_eastern_time()
-        pending_employee.approved_by_id = current_user.id
+        pending_employee.approved_by_id = user_id
 
         db.session.add(new_member)
         db.session.commit()
@@ -1004,15 +1005,16 @@ def register_routes(app):
     def deny_employee(employee_id):
         """Deny a pending employee registration"""
         pending_employee = PendingEmployee.query.get_or_404(employee_id)
-        current_user = get_current_user()
+        user_role = session.get('user_role', '')
+        user_id = session.get('user_id')
 
         # Check permissions
         can_deny = False
-        if current_user.role == 'superadmin':
+        if user_role == 'superadmin':
             can_deny = True
-        elif current_user.role == 'admin' and pending_employee.team == 'admin':
+        elif user_role == 'admin' and pending_employee.team == 'admin':
             can_deny = True
-        elif current_user.role == 'clinical' and pending_employee.team == 'clinical':
+        elif user_role == 'clinical' and pending_employee.team == 'clinical':
             can_deny = True
 
         if not can_deny:
@@ -1022,7 +1024,7 @@ def register_routes(app):
         # Update pending employee status
         pending_employee.status = 'denied'
         pending_employee.approved_at = get_eastern_time()
-        pending_employee.approved_by_id = current_user.id
+        pending_employee.approved_by_id = user_id
 
         # Add denial reason if provided
         denial_reason = request.form.get('denial_reason', '')
@@ -1038,14 +1040,14 @@ def register_routes(app):
     @roles_required('admin', 'clinical', 'superadmin')
     def workqueue_in_progress():
         """View in-progress PTO requests with checklist"""
-        current_user = get_current_user()
+        user_role = session.get('user_role', '')
 
         # Get in-progress requests based on role
-        if current_user.role == 'superadmin':
+        if user_role == 'superadmin':
             in_progress_requests = PTORequest.query.filter_by(status='in_progress').all()
-        elif current_user.role == 'admin':
+        elif user_role == 'admin':
             in_progress_requests = PTORequest.query.filter_by(status='in_progress', manager_team='admin').all()
-        elif current_user.role == 'clinical':
+        elif user_role == 'clinical':
             in_progress_requests = PTORequest.query.filter_by(status='in_progress', manager_team='clinical').all()
         else:
             in_progress_requests = []
@@ -1056,14 +1058,14 @@ def register_routes(app):
     @roles_required('admin', 'clinical', 'superadmin')
     def workqueue_approved():
         """View approved PTO requests"""
-        current_user = get_current_user()
+        user_role = session.get('user_role', '')
 
         # Get approved requests based on role
-        if current_user.role == 'superadmin':
+        if user_role == 'superadmin':
             approved_requests = PTORequest.query.filter_by(status='approved').all()
-        elif current_user.role == 'admin':
+        elif user_role == 'admin':
             approved_requests = PTORequest.query.filter_by(status='approved', manager_team='admin').all()
-        elif current_user.role == 'clinical':
+        elif user_role == 'clinical':
             approved_requests = PTORequest.query.filter_by(status='approved', manager_team='clinical').all()
         else:
             approved_requests = []
@@ -1075,14 +1077,14 @@ def register_routes(app):
     @roles_required('admin', 'clinical', 'superadmin')
     def workqueue_completed():
         """View completed PTO requests"""
-        current_user = get_current_user()
+        user_role = session.get('user_role', '')
 
         # Get completed requests based on role
-        if current_user.role == 'superadmin':
+        if user_role == 'superadmin':
             completed_requests = PTORequest.query.filter_by(status='completed').all()
-        elif current_user.role == 'admin':
+        elif user_role == 'admin':
             completed_requests = PTORequest.query.filter_by(status='completed', manager_team='admin').all()
-        elif current_user.role == 'clinical':
+        elif user_role == 'clinical':
             completed_requests = PTORequest.query.filter_by(status='completed', manager_team='clinical').all()
         else:
             completed_requests = []
