@@ -17,14 +17,26 @@ def roles_required(*roles):
     return wrapper
 
 def get_current_user():
-    """Get the current logged-in user (TeamMember with role)"""
+    """Get the current logged-in user (TeamMember with role or Manager)"""
     if 'user_id' in session:
-        # Check TeamMember first (Leadership)
-        member = TeamMember.query.get(session['user_id'])
-        if member and member.role:
-            return member
+        try:
+            # Check TeamMember first (Leadership)
+            member = TeamMember.query.get(session['user_id'])
+            if member:
+                # Check if this is a Leadership member with role
+                try:
+                    if member.role:
+                        return member
+                except:
+                    pass  # role column might not exist yet
+        except:
+            pass  # TeamMember query failed
+
         # Fallback to Manager for backwards compatibility
-        return Manager.query.get(session['user_id'])
+        try:
+            return Manager.query.get(session['user_id'])
+        except:
+            pass
     return None
 
 def is_logged_in():
@@ -47,14 +59,24 @@ def logout_user():
 def authenticate_user(email, password):
     """Authenticate a user with email and password - checks TeamMember (Leadership) first"""
     # First check TeamMember with role (Leadership members)
-    member = TeamMember.query.filter_by(email=email).first()
-    if member and member.role and member.password_hash and check_password_hash(member.password_hash, password):
-        return member
+    try:
+        member = TeamMember.query.filter_by(email=email).first()
+        if member:
+            try:
+                if member.role and member.password_hash and check_password_hash(member.password_hash, password):
+                    return member
+            except:
+                pass  # role/password_hash columns might not exist yet
+    except:
+        pass  # TeamMember query failed
 
     # Fallback to Manager table for backwards compatibility
-    user = Manager.query.filter_by(email=email).first()
-    if user and user.password_hash and check_password_hash(user.password_hash, password):
-        return user
+    try:
+        user = Manager.query.filter_by(email=email).first()
+        if user and user.password_hash and check_password_hash(user.password_hash, password):
+            return user
+    except:
+        pass
 
     return None
 
