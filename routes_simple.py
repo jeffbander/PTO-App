@@ -61,7 +61,7 @@ def register_routes(app):
             return redirect(url_for('index'))
 
     @app.route('/dashboard/admin')
-    @roles_required('admin', 'superadmin')
+    @roles_required('admin', 'clinical', 'superadmin')
     def admin_dashboard():
         """Admin dashboard"""
         from datetime import datetime, timedelta
@@ -103,7 +103,7 @@ def register_routes(app):
                                now=get_eastern_time)
 
     @app.route('/dashboard/clinical')
-    @roles_required('clinical', 'superadmin')
+    @roles_required('admin', 'clinical', 'superadmin')
     def clinical_dashboard():
         """Clinical dashboard"""
         from datetime import datetime, timedelta
@@ -145,7 +145,7 @@ def register_routes(app):
                                now=get_eastern_time)
 
     @app.route('/dashboard/superadmin')
-    @roles_required('superadmin')
+    @roles_required('admin', 'clinical', 'superadmin')
     def superadmin_dashboard():
         """Super admin dashboard"""
         requests = pto_system.get_all_requests()
