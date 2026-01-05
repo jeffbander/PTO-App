@@ -28,6 +28,17 @@ def register_routes(app):
         staff_directory = pto_system.get_staff_directory()
         return render_template('index.html', staff_directory=staff_directory)
 
+    @app.route('/user-manual')
+    def user_manual():
+        """Display the user manual"""
+        import os
+        import markdown
+        manual_path = os.path.join(os.path.dirname(__file__), 'USER_MANUAL.md')
+        with open(manual_path, 'r') as f:
+            md_content = f.read()
+        html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+        return render_template('user_manual.html', content=html_content)
+
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         """Manager login page"""

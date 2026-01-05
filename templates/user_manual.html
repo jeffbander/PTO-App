@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}User Manual - MSW CVI PTO Tracker{% endblock %}
+
+{% block extra_head %}
+<style>
+    .manual-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        line-height: 1.8;
+    }
+    .manual-content h1 {
+        color: #00205B;
+        border-bottom: 3px solid #00205B;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .manual-content h2 {
+        color: #00205B;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #dee2e6;
+    }
+    .manual-content h3 {
+        color: #333;
+        margin-top: 1.5rem;
+    }
+    .manual-content ul, .manual-content ol {
+        margin-bottom: 1rem;
+    }
+    .manual-content li {
+        margin-bottom: 0.5rem;
+    }
+    .manual-content table {
+        width: 100%;
+        margin: 1rem 0;
+        border-collapse: collapse;
+    }
+    .manual-content th, .manual-content td {
+        border: 1px solid #dee2e6;
+        padding: 0.75rem;
+        text-align: left;
+    }
+    .manual-content th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+    .manual-content strong {
+        color: #00205B;
+    }
+    .manual-content hr {
+        margin: 2rem 0;
+        border: none;
+        border-top: 2px solid #dee2e6;
+    }
+    .back-btn {
+        margin-bottom: 1rem;
+    }
+    @media print {
+        .back-btn, .navbar {
+            display: none !important;
+        }
+        .manual-content {
+            box-shadow: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-primary back-btn">
+            <i class="fas fa-arrow-left me-2"></i>Back to PTO Request Form
+        </a>
+        <div class="manual-content">
+            {{ content | safe }}
+        </div>
+    </div>
+</div>
+{% endblock %}
