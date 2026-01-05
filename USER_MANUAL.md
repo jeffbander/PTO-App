@@ -1,5 +1,9 @@
 # PTO Tracker User Manual
 
+**App URL: https://pto-app-eight.vercel.app**
+
+---
+
 ## What is this app?
 
 The PTO Tracker helps you ask for time off from work. PTO stands for "Paid Time Off." This app lets you:
@@ -19,7 +23,7 @@ Your manager uses this app to say "yes" or "no" to time off requests.
 
 **Step 1: Go to the website**
 
-Open your web browser and go to the PTO Tracker website.
+Open your web browser and go to: **https://pto-app-eight.vercel.app**
 
 **Step 2: Pick your team**
 
@@ -150,7 +154,7 @@ Your manager will get your registration request. Once they approve it, you can s
 
 ### Logging In
 
-1. Go to the PTO Tracker website
+1. Go to **https://pto-app-eight.vercel.app**
 2. Click **Login**
 3. Type your work email
 4. Type your password
@@ -394,4 +398,4 @@ If you have problems:
 
 ---
 
-*Last updated: December 2024*
+*Last updated: January 2026*
