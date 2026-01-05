@@ -57,6 +57,10 @@ def register_routes(app):
             return redirect(url_for('clinical_dashboard'))
         elif user_role == 'superadmin':
             return redirect(url_for('superadmin_dashboard'))
+        elif user_role == 'moa_supervisor':
+            return redirect(url_for('moa_supervisor_dashboard'))
+        elif user_role == 'echo_supervisor':
+            return redirect(url_for('echo_supervisor_dashboard'))
         else:
             return redirect(url_for('index'))
 
@@ -543,37 +547,67 @@ def register_routes(app):
     @roles_required('moa_supervisor', 'superadmin')
     def moa_supervisor_dashboard():
         """MOA Supervisor dashboard"""
-        return render_template('dashboard_moa_supervisor.html', requests=[])
+        # Get MOA positions (positions with 'MOA' in the name)
+        moa_positions = Position.query.filter(Position.name.contains('MOA')).all()
+        moa_pos_ids = [p.id for p in moa_positions]
+
+        # Get MOA team members
+        moa_members = TeamMember.query.filter(TeamMember.position_id.in_(moa_pos_ids)).all()
+        moa_member_ids = [m.id for m in moa_members]
+
+        # Get all PTO requests from MOA team members
+        requests = PTORequest.query.filter(PTORequest.member_id.in_(moa_member_ids)).all()
+
+        return render_template('dashboard_moa_supervisor.html', requests=requests)
 
     @app.route('/dashboard/echo_supervisor')
     @roles_required('echo_supervisor', 'superadmin')
     def echo_supervisor_dashboard():
         """Echo Supervisor dashboard"""
-        return render_template('dashboard_echo_supervisor.html', requests=[])
+        # Get Echo Tech positions (positions with 'Echo' in the name)
+        echo_positions = Position.query.filter(Position.name.contains('Echo')).all()
+        echo_pos_ids = [p.id for p in echo_positions]
+
+        # Get Echo Tech team members
+        echo_members = TeamMember.query.filter(TeamMember.position_id.in_(echo_pos_ids)).all()
+        echo_member_ids = [m.id for m in echo_members]
+
+        # Get all PTO requests from Echo Tech team members
+        requests = PTORequest.query.filter(PTORequest.member_id.in_(echo_member_ids)).all()
+
+        return render_template('dashboard_echo_supervisor.html', requests=requests)
 
     @app.route('/employees')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def employees():
-        """Employee management page - filtered by user role"""
-        user_role = session.get('user_role')
+        """Employee management page - filtered by team and position parameters"""
+        # Check for query parameters
+        team_filter = request.args.get('team', None)
+        position_filter = request.args.get('position', None)
 
-        # Filter employees based on user role
-        if user_role == 'superadmin':
-            # Superadmin sees all employees
-            team_members = TeamMember.query.all()
-        elif user_role == 'admin':
-            # Admin sees only admin team employees
-            admin_positions = Position.query.filter_by(team='admin').all()
-            admin_pos_ids = [p.id for p in admin_positions]
-            team_members = TeamMember.query.filter(TeamMember.position_id.in_(admin_pos_ids)).all()
-        elif user_role == 'clinical':
-            # Clinical sees only clinical team employees
-            clinical_positions = Position.query.filter_by(team='clinical').all()
-            clinical_pos_ids = [p.id for p in clinical_positions]
-            team_members = TeamMember.query.filter(TeamMember.position_id.in_(clinical_pos_ids)).all()
+        # Get positions and build query based on team filter
+        if team_filter == 'admin':
+            # Show admin team employees only
+            positions = Position.query.filter_by(team='admin').order_by(Position.name).all()
+            pos_ids = [p.id for p in positions]
+            query = TeamMember.query.filter(TeamMember.position_id.in_(pos_ids))
+        elif team_filter == 'clinical':
+            # Show clinical team employees only
+            positions = Position.query.filter_by(team='clinical').order_by(Position.name).all()
+            pos_ids = [p.id for p in positions]
+            query = TeamMember.query.filter(TeamMember.position_id.in_(pos_ids))
         else:
-            # Default: show all (fallback)
-            team_members = TeamMember.query.all()
+            # No filter or 'all' - show all employees
+            positions = Position.query.order_by(Position.name).all()
+            query = TeamMember.query
+
+        # Apply position filter if specified
+        if position_filter:
+            pos = Position.query.filter_by(name=position_filter).first()
+            if pos:
+                query = query.filter_by(position_id=pos.id)
+
+        team_members = query.all()
 
         # Calculate comprehensive statistics
         active_employees = [m for m in team_members if '[INACTIVE]' not in m.name]
@@ -588,7 +622,12 @@ def register_routes(app):
             'total_pto_days': round(total_pto_days, 1),
             'avg_pto_days': round(avg_pto_days, 1)
         }
-        return render_template('employees.html', team_members=team_members, stats=stats)
+        return render_template('employees.html',
+                               team_members=team_members,
+                               stats=stats,
+                               positions=positions,
+                               current_team=team_filter,
+                               current_position=position_filter)
 
     @app.route('/pending_employees')
     @roles_required('admin', 'clinical', 'superadmin')
@@ -877,22 +916,31 @@ def register_routes(app):
     def delete_employee(employee_id):
         """Delete or deactivate employee"""
         employee = TeamMember.query.get_or_404(employee_id)
+        employee_name = employee.name.replace('[INACTIVE] ', '')
 
         try:
-            # Check if employee has PTO requests
-            has_pto_history = PTORequest.query.filter_by(member_id=employee.id).first() is not None
-
-            if has_pto_history:
-                # Mark as inactive instead of deleting
-                if '[INACTIVE]' not in employee.name:
-                    employee.name = f'[INACTIVE] {employee.name}'
-                    db.session.commit()
-                    flash(f'Employee {employee.name} marked as inactive due to PTO history.', 'info')
-            else:
-                # Safe to delete
+            # If employee is already inactive, delete them and all their PTO history
+            if '[INACTIVE]' in employee.name:
+                # Delete all PTO requests for this employee
+                PTORequest.query.filter_by(member_id=employee.id).delete()
+                # Delete the employee
                 db.session.delete(employee)
                 db.session.commit()
-                flash(f'Employee {employee.name} deleted successfully.', 'success')
+                flash(f'Inactive employee {employee_name} and all PTO history deleted permanently.', 'success')
+            else:
+                # Check if active employee has PTO requests
+                has_pto_history = PTORequest.query.filter_by(member_id=employee.id).first() is not None
+
+                if has_pto_history:
+                    # Mark as inactive instead of deleting
+                    employee.name = f'[INACTIVE] {employee.name}'
+                    db.session.commit()
+                    flash(f'Employee {employee_name} marked as inactive due to PTO history.', 'info')
+                else:
+                    # Safe to delete (no PTO history)
+                    db.session.delete(employee)
+                    db.session.commit()
+                    flash(f'Employee {employee_name} deleted successfully.', 'success')
 
         except Exception as e:
             flash(f'Error deleting employee: {str(e)}', 'error')

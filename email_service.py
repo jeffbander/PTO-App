@@ -1,33 +1,36 @@
 """
 Enhanced email service with HTML email support for PTO notifications
+Uses SendGrid API for reliable email delivery
 """
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import os
 import logging
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class EmailService:
-    """Service for sending PTO-related email notifications"""
+    """Service for sending PTO-related email notifications via SendGrid"""
 
     def __init__(self):
         """Initialize email service with configuration from environment variables"""
         self.enabled = os.getenv('EMAIL_ENABLED', 'False').lower() == 'true'
-        self.smtp_host = os.getenv('SMTP_HOST', 'smtp.gmail.com')
-        self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        self.smtp_user = os.getenv('SMTP_USER', '')
-        self.smtp_password = os.getenv('SMTP_PASSWORD', '')
+        self.sendgrid_api_key = os.getenv('SENDGRID_API_KEY', '')
         self.from_email = os.getenv('FROM_EMAIL', 'noreply@mswcvi.com')
         self.admin_email = os.getenv('ADMIN_EMAIL', 'admin@mswcvi.com')
         self.clinical_email = os.getenv('CLINICAL_EMAIL', 'clinical@mswcvi.com')
 
+        # Initialize SendGrid client
+        if self.sendgrid_api_key:
+            self.sg_client = SendGridAPIClient(self.sendgrid_api_key)
+        else:
+            self.sg_client = None
+
     def send_email(self, to_email, subject, body_html=None, body_text=None):
-        """Send email via SMTP with HTML support"""
+        """Send email via SendGrid API"""
         if not self.enabled:
             # Console fallback for testing/debugging
             logger.info("EMAIL NOTIFICATION (Console Mode - Email Disabled)")
@@ -37,36 +40,32 @@ class EmailService:
             logger.info("-" * 50)
             return True
 
+        if not self.sg_client:
+            logger.error("SendGrid API key not configured")
+            return False
+
         try:
-            # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = self.from_email
-            msg['To'] = to_email
+            # Create SendGrid message
+            message = Mail(
+                from_email=self.from_email,
+                to_emails=to_email,
+                subject=subject
+            )
 
-            # Add text and HTML parts
-            if body_text:
-                part1 = MIMEText(body_text, 'plain')
-                msg.attach(part1)
-
+            # Add content (prefer HTML if available)
             if body_html:
-                part2 = MIMEText(body_html, 'html')
-                msg.attach(part2)
+                message.add_content(Content("text/html", body_html))
+            if body_text:
+                message.add_content(Content("text/plain", body_text))
 
-            # Send email via SMTP
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
+            # Send via SendGrid API
+            response = self.sg_client.send(message)
 
-            logger.info(f"Email sent successfully to {to_email}")
+            logger.info(f"Email sent successfully to {to_email} (Status: {response.status_code})")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to send email: {str(e)}")
-            # In production, you might want to raise this exception
-            # For now, we'll just log it and return False
+            logger.error(f"Failed to send email via SendGrid: {str(e)}")
             return False
 
     def send_submission_email(self, pto_request):
@@ -480,3 +479,27 @@ class EmailService:
         """
 
         return self.send_email(employee_email, subject, body_html, body_text)
+
+
+# Standalone helper function for routes.py compatibility
+def send_submission_email(request_data, request_id):
+    """
+    Helper function to send submission email from routes.py
+    This function is called with request_data dict and request_id
+    """
+    try:
+        from models import PTORequest
+
+        # Get the PTO request from database
+        pto_request = PTORequest.query.get(request_id)
+
+        if pto_request:
+            # Create EmailService instance and send
+            service = EmailService()
+            return service.send_submission_email(pto_request)
+        else:
+            logger.error(f"PTO Request {request_id} not found for email notification")
+            return False
+    except Exception as e:
+        logger.error(f"Error in send_submission_email helper: {str(e)}")
+        return False

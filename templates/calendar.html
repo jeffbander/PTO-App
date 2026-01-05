@@ -69,6 +69,10 @@
                         <div class="legend-color bg-danger me-2"></div>
                         <span>Call Out</span>
                     </div>
+                    <div class="d-flex align-items-center">
+                        <div class="legend-color me-2" style="background-color: #6f42c1;"></div>
+                        <span>Holiday</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -230,11 +234,27 @@
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
     const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-    
+
     // Calendar events data from Flask
     const allEvents = {{ calendar_events|tojson|safe }};
     let filteredEvents = [...allEvents]; // Start with all events
-    
+    let holidayEvents = []; // Will hold holiday events
+
+    // Fetch holidays from API
+    fetch('/api/holidays')
+        .then(response => response.json())
+        .then(holidays => {
+            // Format holidays for display (not as background, as regular events)
+            holidayEvents = holidays.map(h => ({
+                ...h,
+                display: 'auto',  // Show as regular event, not background
+                textColor: '#ffffff'
+            }));
+            // Add holidays to calendar
+            calendar.addEventSource(holidayEvents);
+        })
+        .catch(error => console.error('Error loading holidays:', error));
+
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         height: 'auto',
@@ -246,6 +266,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }, // Show month/year title
         
         eventClick: function(info) {
+            // Don't show modal for holidays
+            if (info.event.extendedProps.is_holiday) {
+                return;
+            }
             showEventDetails(info.event);
         },
         
@@ -260,6 +284,13 @@ document.addEventListener('DOMContentLoaded', function() {
         dayMaxEvents: 3, // Show "more" link when too many events
         
         eventDidMount: function(info) {
+            // Check if this is a holiday event
+            const isHoliday = info.event.extendedProps.is_holiday;
+            if (isHoliday) {
+                info.el.setAttribute('title', info.event.title);
+                return; // Skip other processing for holidays
+            }
+
             // Add custom styling based on call-out or status
             const isCallOut = info.event.extendedProps.is_call_out;
             const status = info.event.extendedProps.status;
