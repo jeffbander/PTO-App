@@ -68,6 +68,10 @@ def register_routes(app):
             return redirect(url_for('clinical_dashboard'))
         elif user_role == 'superadmin':
             return redirect(url_for('superadmin_dashboard'))
+        elif user_role == 'moa_supervisor':
+            return redirect(url_for('moa_supervisor_dashboard'))
+        elif user_role == 'echo_supervisor':
+            return redirect(url_for('echo_supervisor_dashboard'))
         else:
             return redirect(url_for('index'))
 
@@ -104,6 +108,15 @@ def register_routes(app):
             ~TeamMember.name.contains('[INACTIVE]')
         ).order_by(TeamMember.name).all()
 
+        # Build stats dictionary for dashboard
+        stats = {
+            'pending': len(pending_requests),
+            'in_progress': len(in_progress_requests),
+            'approved': len(approved_requests),
+            'total': len(pending_requests) + len(in_progress_requests) + len(approved_requests),
+            'team_members': len(team_employees)
+        }
+
         return render_template('dashboard_admin.html',
                                requests=pending_requests,
                                approved_requests=approved_requests,
@@ -111,6 +124,7 @@ def register_routes(app):
                                pending_employees=pending_employees,
                                currently_on_pto=currently_on_pto,
                                team_employees=team_employees,
+                               stats=stats,
                                now=get_eastern_time)
 
     @app.route('/dashboard/clinical')
@@ -146,6 +160,15 @@ def register_routes(app):
             ~TeamMember.name.contains('[INACTIVE]')
         ).order_by(TeamMember.name).all()
 
+        # Build stats dictionary for dashboard
+        stats = {
+            'pending': len(pending_requests),
+            'in_progress': len(in_progress_requests),
+            'approved': len(approved_requests),
+            'total': len(pending_requests) + len(in_progress_requests) + len(approved_requests),
+            'team_members': len(team_employees)
+        }
+
         return render_template('dashboard_clinical.html',
                                requests=pending_requests,
                                approved_requests=approved_requests,
@@ -153,6 +176,7 @@ def register_routes(app):
                                pending_employees=pending_employees,
                                currently_on_pto=currently_on_pto,
                                team_employees=team_employees,
+                               stats=stats,
                                now=get_eastern_time)
 
     @app.route('/dashboard/superadmin')
@@ -554,13 +578,35 @@ def register_routes(app):
     @roles_required('moa_supervisor', 'superadmin')
     def moa_supervisor_dashboard():
         """MOA Supervisor dashboard"""
-        return render_template('dashboard_moa_supervisor.html', requests=[])
+        # Get MOA positions (positions with 'MOA' in the name)
+        moa_positions = Position.query.filter(Position.name.contains('MOA')).all()
+        moa_pos_ids = [p.id for p in moa_positions]
+
+        # Get MOA team members
+        moa_members = TeamMember.query.filter(TeamMember.position_id.in_(moa_pos_ids)).all()
+        moa_member_ids = [m.id for m in moa_members]
+
+        # Get all PTO requests from MOA team members
+        requests = PTORequest.query.filter(PTORequest.member_id.in_(moa_member_ids)).all()
+
+        return render_template('dashboard_moa_supervisor.html', requests=requests)
 
     @app.route('/dashboard/echo_supervisor')
     @roles_required('echo_supervisor', 'superadmin')
     def echo_supervisor_dashboard():
         """Echo Supervisor dashboard"""
-        return render_template('dashboard_echo_supervisor.html', requests=[])
+        # Get Echo Tech positions (positions with 'Echo' in the name)
+        echo_positions = Position.query.filter(Position.name.contains('Echo')).all()
+        echo_pos_ids = [p.id for p in echo_positions]
+
+        # Get Echo Tech team members
+        echo_members = TeamMember.query.filter(TeamMember.position_id.in_(echo_pos_ids)).all()
+        echo_member_ids = [m.id for m in echo_members]
+
+        # Get all PTO requests from Echo Tech team members
+        requests = PTORequest.query.filter(PTORequest.member_id.in_(echo_member_ids)).all()
+
+        return render_template('dashboard_echo_supervisor.html', requests=requests)
 
     @app.route('/employees')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
@@ -888,22 +934,31 @@ def register_routes(app):
     def delete_employee(employee_id):
         """Delete or deactivate employee"""
         employee = TeamMember.query.get_or_404(employee_id)
+        employee_name = employee.name.replace('[INACTIVE] ', '')
 
         try:
-            # Check if employee has PTO requests
-            has_pto_history = PTORequest.query.filter_by(member_id=employee.id).first() is not None
-
-            if has_pto_history:
-                # Mark as inactive instead of deleting
-                if '[INACTIVE]' not in employee.name:
-                    employee.name = f'[INACTIVE] {employee.name}'
-                    db.session.commit()
-                    flash(f'Employee {employee.name} marked as inactive due to PTO history.', 'info')
-            else:
-                # Safe to delete
+            # If employee is already inactive, delete them and all their PTO history
+            if '[INACTIVE]' in employee.name:
+                # Delete all PTO requests for this employee
+                PTORequest.query.filter_by(member_id=employee.id).delete()
+                # Delete the employee
                 db.session.delete(employee)
                 db.session.commit()
-                flash(f'Employee {employee.name} deleted successfully.', 'success')
+                flash(f'Inactive employee {employee_name} and all PTO history deleted permanently.', 'success')
+            else:
+                # Check if active employee has PTO requests
+                has_pto_history = PTORequest.query.filter_by(member_id=employee.id).first() is not None
+
+                if has_pto_history:
+                    # Mark as inactive instead of deleting
+                    employee.name = f'[INACTIVE] {employee.name}'
+                    db.session.commit()
+                    flash(f'Employee {employee_name} marked as inactive due to PTO history.', 'info')
+                else:
+                    # Safe to delete (no PTO history)
+                    db.session.delete(employee)
+                    db.session.commit()
+                    flash(f'Employee {employee_name} deleted successfully.', 'success')
 
         except Exception as e:
             flash(f'Error deleting employee: {str(e)}', 'error')

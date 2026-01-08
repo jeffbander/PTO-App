@@ -3,7 +3,41 @@
 {% block title %}Super Admin Dashboard - MSW CVI PTO Tracker{% endblock %}
 
 {% block extra_head %}
+<!-- FullCalendar CSS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css' rel='stylesheet' />
 <style>
+/* Calendar styling */
+#teamCalendar {
+    max-height: 500px;
+}
+
+.fc-event {
+    cursor: pointer;
+}
+
+.status-approved {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+}
+
+.status-pending {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+.status-callout {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
 /* Filter buttons */
 .filter-buttons {
     padding: 15px;
@@ -59,7 +93,40 @@
                     <a href="{{ url_for('calendar') }}" class="btn btn-info">
                         <i class="fas fa-calendar me-2"></i>View Calendar
                     </a>
+                    <a href="{{ url_for('manager_manual') }}" class="btn btn-secondary">
+                        <i class="fas fa-book me-2"></i>Manager Manual
+                    </a>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Team Calendar -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>Team Calendar (All Teams)
+                </h5>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center">
+                        <div class="legend-color bg-success me-1"></div>
+                        <small>Approved</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="legend-color bg-warning me-1"></div>
+                        <small>Pending</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="legend-color bg-danger me-1"></div>
+                        <small>Call Out</small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="teamCalendar"></div>
             </div>
         </div>
     </div>
@@ -273,5 +340,68 @@ function filterRequests(filterType) {
         }
     });
 }
+</script>
+
+<!-- FullCalendar JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js'></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('teamCalendar');
+
+    // Build calendar events from requests
+    const calendarEvents = [
+        {% for request in requests %}
+        {
+            title: '{{ request.member.name if request.member else "Unknown" }}',
+            start: '{{ request.start_date }}',
+            end: '{{ request.end_date }}',
+            allDay: true,
+            extendedProps: {
+                status: '{{ request.status }}',
+                is_call_out: {{ 'true' if request.is_call_out else 'false' }},
+                type: '{{ request.pto_type }}',
+                team: '{{ request.member.team if request.member else "unknown" }}',
+                position: '{{ request.member.position if request.member else "N/A" }}',
+                duration: {% if request.is_partial_day %}'{{ "%.1f"|format(request.duration_hours) }} hrs'{% else %}'{{ request.duration_days }} day{{ "s" if request.duration_days != 1 else "" }}'{% endif %}
+            }
+        },
+        {% endfor %}
+    ];
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        height: 'auto',
+        events: calendarEvents,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+        },
+
+        dayMaxEvents: 3,
+
+        eventDidMount: function(info) {
+            const isCallOut = info.event.extendedProps.is_call_out;
+            const status = info.event.extendedProps.status;
+
+            if (isCallOut) {
+                info.el.classList.add('status-callout');
+            } else {
+                info.el.classList.add(`status-${status}`);
+            }
+
+            // Add tooltip
+            const tooltipText = `${info.event.title}\n` +
+                `Team: ${info.event.extendedProps.team}\n` +
+                `Type: ${info.event.extendedProps.type}${isCallOut ? ' (Call Out)' : ''}\n` +
+                `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}\n` +
+                `Duration: ${info.event.extendedProps.duration}`;
+
+            info.el.setAttribute('title', tooltipText);
+        }
+    });
+
+    calendar.render();
+});
 </script>
 {% endblock %}
