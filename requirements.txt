@@ -20,8 +20,11 @@ pytz>=2023.3
 # Twilio SDK for Call-Out Feature
 twilio>=8.10.0
 
-# Email Support (if using SMTP)
-# These are built into Python, no additional packages needed
+# Email Support
+sendgrid>=6.10.0
+
+# Markdown rendering for user manual
+markdown>=3.5.0
 
 # Development/Testing (optional)
 # pytest>=7.4.0

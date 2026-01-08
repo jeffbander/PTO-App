@@ -115,6 +115,63 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Tardiness Tracking Card -->
+        <div class="card mt-3">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Tardiness Tracking</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Total Incidents:</strong> {{ stats.total_tardiness }}<br>
+                    <strong>Total Minutes Late:</strong> {{ stats.total_tardiness_minutes }} min
+                </div>
+
+                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                <!-- Add Tardiness Form -->
+                <hr>
+                <h6><i class="fas fa-plus-circle me-1"></i>Record Tardiness</h6>
+                <form id="tardinessForm" class="mt-2">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="date" class="form-control form-control-sm" id="tardiness_date" required>
+                        </div>
+                        <div class="col-6">
+                            <input type="number" class="form-control form-control-sm" id="tardiness_minutes" placeholder="Minutes late" min="1" required>
+                        </div>
+                        <div class="col-12">
+                            <input type="text" class="form-control form-control-sm" id="tardiness_reason" placeholder="Reason (optional)">
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-warning btn-sm w-100">
+                                <i class="fas fa-plus me-1"></i>Add Tardiness
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                {% endif %}
+
+                {% if tardiness_records %}
+                <hr>
+                <h6>Recent Tardiness</h6>
+                <div class="list-group list-group-flush" style="max-height: 150px; overflow-y: auto;">
+                    {% for record in tardiness_records[:5] %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
+                        <small>
+                            <strong>{{ record.date }}</strong> - {{ record.minutes_late }} min
+                            {% if record.reason %}<br><span class="text-muted">{{ record.reason }}</span>{% endif %}
+                        </small>
+                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTardiness({{ record.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
 
@@ -122,70 +179,116 @@
 <div class="row mt-4">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-history me-2"></i>Request History</h5>
+                <div class="btn-group" role="group" aria-label="View toggle">
+                    <button type="button" class="btn btn-primary btn-sm active" id="listViewBtn" onclick="showListView()">
+                        <i class="fas fa-list me-1"></i>List
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="calendarViewBtn" onclick="showCalendarView()">
+                        <i class="fas fa-calendar me-1"></i>Calendar
+                    </button>
+                </div>
             </div>
             <div class="card-body">
-                {% if pto_requests %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Type</th>
-                                <th>Dates</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                                <th>Submitted</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for request in pto_requests %}
-                            <tr>
-                                <td>#{{ request.id }}</td>
-                                <td>
-                                    {% if request.is_call_out %}
-                                        <span class="badge bg-danger">
-                                            <i class="fas fa-exclamation-circle"></i> CALL OUT
+                <!-- List View -->
+                <div id="listView">
+                    {% if pto_requests %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Dates</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                    <th>Submitted</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in pto_requests %}
+                                <tr>
+                                    <td>#{{ request.id }}</td>
+                                    <td>
+                                        {% if request.is_call_out %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ request.start_date }} to {{ request.end_date }}
+                                        {% if request.is_partial_day %}
+                                        <br><small class="text-muted">
+                                            <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if request.is_partial_day %}
+                                            {{ "%.1f"|format(request.duration_hours) }} hours
+                                        {% else %}
+                                            {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge status-{{ request.status }}">
+                                            {{ request.status|title }}
                                         </span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">{{ request.pto_type }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ request.start_date }} to {{ request.end_date }}
-                                    {% if request.is_partial_day %}
-                                    <br><small class="text-muted">
-                                        <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
-                                    </small>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if request.is_partial_day %}
-                                        {{ "%.1f"|format(request.duration_hours) }} hours
-                                    {% else %}
-                                        {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge status-{{ request.status }}">
-                                        {{ request.status|title }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                                    </td>
+                                    <td>
+                                        {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No PTO requests found for this employee.</p>
+                    </div>
+                    {% endif %}
                 </div>
-                {% else %}
-                <div class="text-center py-4">
-                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                    <p class="text-muted">No PTO requests found for this employee.</p>
+
+                <!-- Calendar View -->
+                <div id="calendarView" style="display: none;">
+                    <div class="mb-3">
+                        <span class="badge bg-success me-2"><i class="fas fa-circle"></i> Approved</span>
+                        <span class="badge bg-warning text-dark me-2"><i class="fas fa-circle"></i> Pending</span>
+                        <span class="badge bg-danger me-2"><i class="fas fa-circle"></i> Call-Out/Denied</span>
+                        <span class="badge me-2" style="background-color: #fd7e14; color: white;"><i class="fas fa-circle"></i> Tardiness</span>
+                        <span class="badge me-2" style="background-color: #6f42c1; color: white;"><i class="fas fa-circle"></i> Holiday</span>
+                    </div>
+                    <div id="employeeCalendar"></div>
                 </div>
-                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PTO Event Details Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-calendar-day me-2"></i>PTO Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Type:</strong> <span id="modalType"></span></p>
+                <p><strong>Dates:</strong> <span id="modalDates"></span></p>
+                <p><strong>Duration:</strong> <span id="modalDuration"></span></p>
+                <p><strong>Status:</strong> <span id="modalStatus"></span></p>
+                <p><strong>Reason:</strong> <span id="modalReason"></span></p>
+                <p><strong>Submitted:</strong> <span id="modalSubmitted"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -217,14 +320,194 @@
 </div>
 {% endblock %}
 
+{% block extra_head %}
+<!-- FullCalendar CSS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css' rel='stylesheet' />
+{% endblock %}
+
 {% block extra_scripts %}
+<!-- FullCalendar JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js'></script>
+
 <script>
+let calendar = null;
+const employeeId = {{ employee.id }};
+
 function confirmDelete(employeeId, employeeName) {
     document.getElementById('deleteEmployeeName').textContent = employeeName;
     document.getElementById('deleteForm').action = `/employee/delete/${employeeId}`;
 
     const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
     modal.show();
+}
+
+function showListView() {
+    document.getElementById('listView').style.display = 'block';
+    document.getElementById('calendarView').style.display = 'none';
+    document.getElementById('listViewBtn').classList.add('active', 'btn-primary');
+    document.getElementById('listViewBtn').classList.remove('btn-outline-primary');
+    document.getElementById('calendarViewBtn').classList.remove('active', 'btn-primary');
+    document.getElementById('calendarViewBtn').classList.add('btn-outline-primary');
+}
+
+function showCalendarView() {
+    document.getElementById('listView').style.display = 'none';
+    document.getElementById('calendarView').style.display = 'block';
+    document.getElementById('listViewBtn').classList.remove('active', 'btn-primary');
+    document.getElementById('listViewBtn').classList.add('btn-outline-primary');
+    document.getElementById('calendarViewBtn').classList.add('active', 'btn-primary');
+    document.getElementById('calendarViewBtn').classList.remove('btn-outline-primary');
+
+    // Initialize calendar if not already done
+    if (!calendar) {
+        initializeCalendar();
+    } else {
+        calendar.render();
+    }
+}
+
+function initializeCalendar() {
+    const calendarEl = document.getElementById('employeeCalendar');
+    const eventsUrl = `/api/employee/${employeeId}/pto-events`;
+    console.log('Loading calendar events from:', eventsUrl);
+
+    calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+        },
+        events: {
+            url: eventsUrl,
+            failure: function(error) {
+                console.error('Error loading events:', error);
+                alert('Failed to load calendar events. Check console for details.');
+            },
+            success: function(events) {
+                console.log('Loaded events:', events.length);
+            }
+        },
+        eventClick: function(info) {
+            const event = info.event;
+            const props = event.extendedProps;
+
+            // Don't show modal for holidays
+            if (props.is_holiday) {
+                return;
+            }
+
+            // Use original dates from extendedProps
+            const startDate = props.start_date || 'N/A';
+            const endDate = props.end_date || startDate;
+
+            // Populate modal
+            document.getElementById('modalType').innerHTML = props.is_call_out
+                ? '<span class="badge bg-danger">Call Out - ' + props.type + '</span>'
+                : '<span class="badge bg-secondary">' + props.type + '</span>';
+            document.getElementById('modalDates').textContent = startDate + ' to ' + endDate;
+            document.getElementById('modalDuration').textContent = props.duration;
+            document.getElementById('modalStatus').innerHTML = '<span class="badge status-' + props.status + '">' + props.status.charAt(0).toUpperCase() + props.status.slice(1) + '</span>';
+            document.getElementById('modalReason').textContent = props.reason;
+            document.getElementById('modalSubmitted').textContent = props.submitted;
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+            modal.show();
+        },
+        eventDidMount: function(info) {
+            const props = info.event.extendedProps;
+            // Add tooltip - different format for holidays
+            if (props.is_holiday) {
+                info.el.title = info.event.title;
+            } else {
+                info.el.title = info.event.title + ' (' + props.status + ')';
+            }
+        },
+        height: 'auto'
+    });
+
+    // Fetch and add holidays to calendar
+    fetch('/api/holidays')
+        .then(response => response.json())
+        .then(holidays => {
+            // Format holidays for display (not as background, as regular events)
+            const holidayEvents = holidays.map(h => ({
+                ...h,
+                display: 'auto',  // Show as regular event, not background
+                textColor: '#ffffff'
+            }));
+            // Add holidays to calendar
+            calendar.addEventSource(holidayEvents);
+        })
+        .catch(error => console.error('Error loading holidays:', error));
+
+    calendar.render();
+}
+
+// Tardiness form handling
+document.addEventListener('DOMContentLoaded', function() {
+    const tardinessForm = document.getElementById('tardinessForm');
+    if (tardinessForm) {
+        // Set default date to today
+        document.getElementById('tardiness_date').valueAsDate = new Date();
+
+        tardinessForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const date = document.getElementById('tardiness_date').value;
+            const minutes = document.getElementById('tardiness_minutes').value;
+            const reason = document.getElementById('tardiness_reason').value;
+
+            fetch(`/api/employee/${employeeId}/tardiness`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    date: date,
+                    minutes_late: minutes,
+                    reason: reason
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Tardiness recorded successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to record tardiness');
+            });
+        });
+    }
+});
+
+function deleteTardiness(tardinessId) {
+    if (!confirm('Are you sure you want to delete this tardiness record?')) {
+        return;
+    }
+
+    fetch(`/api/employee/${employeeId}/tardiness/${tardinessId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Tardiness record deleted');
+            location.reload();
+        } else {
+            alert('Error deleting record');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete tardiness record');
+    });
 }
 </script>
 {% endblock %}

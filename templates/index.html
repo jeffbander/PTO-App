@@ -65,32 +65,28 @@
                             <label for="pto_type" class="form-label">PTO Type <span class="text-danger">*</span></label>
                             <select class="form-select" id="pto_type" name="pto_type" required>
                                 <option value="">Select Type</option>
-                                <option value="Vacation">Vacation</option>
-                                <option value="Sick Leave">Sick Leave</option>
+                                <option value="Sick">Sick</option>
                                 <option value="Personal">Personal</option>
-                                <option value="Family Emergency">Family Emergency</option>
-                                <option value="Bereavement">Bereavement</option>
-                                <option value="Other">Other</option>
+                                <option value="Vacation">Vacation</option>
                             </select>
                         </div>
-                        <!-- Call Out option placed in Request Details (checkbox style like Partial Day) -->
-                        <div class="col-12 mb-3">
+                    </div>
+
+                    <!-- Call Out and Partial Day Options (side by side) -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_partial_day" name="is_partial_day">
+                                <label class="form-check-label" for="is_partial_day">
+                                    Partial day request
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="call_out_checkbox" name="call_out_checkbox">
                                 <label class="form-check-label" for="call_out_checkbox">
                                     Call-out (Today Only)
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Partial Day Option -->
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="is_partial_day" name="is_partial_day">
-                                <label class="form-check-label" for="is_partial_day">
-                                    This is a partial day request
                                 </label>
                             </div>
                         </div>
@@ -337,8 +333,8 @@ document.addEventListener('DOMContentLoaded', function() {
         startDate.value = isoDate;
         endDate.value = isoDate;
 
-        // Force PTO Type to Sick Leave and make readonly
-        ptoType.value = 'Sick Leave';
+        // Force PTO Type to Sick and make readonly
+        ptoType.value = 'Sick';
         ptoType.style.pointerEvents = 'none';
         ptoType.style.backgroundColor = '#e9ecef';
         ptoType.classList.add('bg-light');
@@ -401,10 +397,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
 
-            // Ensure pto type is Sick Leave
-            if (ptoType.value !== 'Sick Leave') {
+            // Ensure pto type is Sick
+            if (ptoType.value !== 'Sick') {
                 e.preventDefault();
-                showNotification('Call Out requests must use PTO type: Sick Leave.', 'error');
+                showNotification('Call Out requests must use PTO type: Sick.', 'error');
                 return false;
             }
         }

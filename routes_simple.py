@@ -30,14 +30,25 @@ def register_routes(app):
 
     @app.route('/user-manual')
     def user_manual():
-        """Display the user manual"""
+        """Display the employee user manual"""
         import os
         import markdown
         manual_path = os.path.join(os.path.dirname(__file__), 'USER_MANUAL.md')
         with open(manual_path, 'r') as f:
             md_content = f.read()
         html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
-        return render_template('user_manual.html', content=html_content)
+        return render_template('user_manual.html', content=html_content, title='Employee Manual')
+
+    @app.route('/manager-manual')
+    def manager_manual():
+        """Display the manager user manual"""
+        import os
+        import markdown
+        manual_path = os.path.join(os.path.dirname(__file__), 'MANAGER_MANUAL.md')
+        with open(manual_path, 'r') as f:
+            md_content = f.read()
+        html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+        return render_template('user_manual.html', content=html_content, title='Manager Manual')
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
@@ -611,26 +622,34 @@ def register_routes(app):
     @app.route('/employees')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def employees():
-        """Employee management page - filtered by user role"""
-        user_role = session.get('user_role')
+        """Employee management page - filtered by team and position parameters"""
+        # Check for query parameters
+        team_filter = request.args.get('team', None)
+        position_filter = request.args.get('position', None)
 
-        # Filter employees based on user role
-        if user_role == 'superadmin':
-            # Superadmin sees all employees
-            team_members = TeamMember.query.all()
-        elif user_role == 'admin':
-            # Admin sees only admin team employees
-            admin_positions = Position.query.filter_by(team='admin').all()
-            admin_pos_ids = [p.id for p in admin_positions]
-            team_members = TeamMember.query.filter(TeamMember.position_id.in_(admin_pos_ids)).all()
-        elif user_role == 'clinical':
-            # Clinical sees only clinical team employees
-            clinical_positions = Position.query.filter_by(team='clinical').all()
-            clinical_pos_ids = [p.id for p in clinical_positions]
-            team_members = TeamMember.query.filter(TeamMember.position_id.in_(clinical_pos_ids)).all()
+        # Get positions and build query based on team filter
+        if team_filter == 'admin':
+            # Show admin team employees only
+            positions = Position.query.filter_by(team='admin').order_by(Position.name).all()
+            pos_ids = [p.id for p in positions]
+            query = TeamMember.query.filter(TeamMember.position_id.in_(pos_ids))
+        elif team_filter == 'clinical':
+            # Show clinical team employees only
+            positions = Position.query.filter_by(team='clinical').order_by(Position.name).all()
+            pos_ids = [p.id for p in positions]
+            query = TeamMember.query.filter(TeamMember.position_id.in_(pos_ids))
         else:
-            # Default: show all (fallback)
-            team_members = TeamMember.query.all()
+            # No filter or 'all' - show all employees
+            positions = Position.query.order_by(Position.name).all()
+            query = TeamMember.query
+
+        # Apply position filter if specified
+        if position_filter:
+            pos = Position.query.filter_by(name=position_filter).first()
+            if pos:
+                query = query.filter_by(position_id=pos.id)
+
+        team_members = query.all()
 
         # Calculate comprehensive statistics
         active_employees = [m for m in team_members if '[INACTIVE]' not in m.name]
@@ -645,7 +664,12 @@ def register_routes(app):
             'total_pto_days': round(total_pto_days, 1),
             'avg_pto_days': round(avg_pto_days, 1)
         }
-        return render_template('employees.html', team_members=team_members, stats=stats)
+        return render_template('employees.html',
+                               team_members=team_members,
+                               stats=stats,
+                               positions=positions,
+                               current_team=team_filter,
+                               current_position=position_filter)
 
     @app.route('/pending_employees')
     @roles_required('admin', 'clinical', 'superadmin')

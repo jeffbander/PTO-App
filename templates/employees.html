@@ -66,6 +66,28 @@
     </div>
 </div>
 
+<!-- Position Filter -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label for="positionFilter" class="form-label"><i class="fas fa-filter me-1"></i>Filter by Position</label>
+        <select class="form-select" id="positionFilter" onchange="filterByPosition(this.value)">
+            <option value="">All Positions</option>
+            {% for position in positions %}
+            <option value="{{ position.name }}" {% if current_position == position.name %}selected{% endif %}>
+                {{ position.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if current_position %}
+    <div class="col-md-4 d-flex align-items-end">
+        <a href="{{ url_for('employees', team=current_team) if current_team else url_for('employees') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-times me-1"></i>Clear Filter
+        </a>
+    </div>
+    {% endif %}
+</div>
+
 <!-- Employees Table -->
 <div class="card">
     <div class="card-header">
@@ -239,6 +261,16 @@
 
 {% block extra_scripts %}
 <script>
+
+function filterByPosition(position) {
+    const url = new URL(window.location.href);
+    if (position) {
+        url.searchParams.set('position', position);
+    } else {
+        url.searchParams.delete('position');
+    }
+    window.location.href = url.toString();
+}
 
 function confirmDelete(employeeId, employeeName) {
     document.getElementById('deleteEmployeeName').textContent = employeeName;

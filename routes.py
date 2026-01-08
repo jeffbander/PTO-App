@@ -784,6 +784,73 @@ def calendar():
     
     return render_template('calendar.html', requests=requests, calendar_events=events)
 
+@app.route('/api/employee/<int:employee_id>/pto-events')
+@roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
+def get_employee_pto_events(employee_id):
+    """API endpoint to get PTO events for a specific employee (for calendar view)"""
+    from datetime import timedelta
+
+    employee = TeamMember.query.get_or_404(employee_id)
+    requests = PTORequest.query.filter_by(member_id=employee_id).all()
+
+    events = []
+    for req in requests:
+        # Determine event color based on status
+        if req.is_call_out:
+            color = '#dc3545'  # Red for call-outs
+        elif req.status == 'approved':
+            color = '#28a745'  # Green
+        elif req.status == 'pending':
+            color = '#ffc107'  # Yellow
+        elif req.status == 'denied':
+            color = '#6c757d'  # Gray
+        else:
+            color = '#17a2b8'  # Info blue for other statuses
+
+        # Determine title
+        if req.is_call_out:
+            title = f"Call Out - {req.pto_type}"
+        else:
+            title = req.pto_type
+
+        # Calculate end date (FullCalendar uses exclusive end dates, so add 1 day)
+        try:
+            end_date = datetime.strptime(str(req.end_date), '%Y-%m-%d')
+            end_date_exclusive = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        except:
+            end_date_exclusive = str(req.end_date)
+
+        event = {
+            'id': req.id,
+            'title': title,
+            'start': str(req.start_date),
+            'end': end_date_exclusive,
+            'color': color,
+            'allDay': not req.is_partial_day,
+            'extendedProps': {
+                'type': req.pto_type,
+                'status': req.status,
+                'duration': req.duration_days if not req.is_partial_day else f"{req.duration_hours} hours",
+                'is_partial_day': req.is_partial_day,
+                'is_call_out': req.is_call_out,
+                'reason': req.reason or 'Not specified',
+                'submitted': req.submitted_at.strftime('%m/%d/%Y') if req.submitted_at else 'N/A',
+                'start_date': str(req.start_date),
+                'end_date': str(req.end_date)
+            }
+        }
+
+        # For partial day requests, add time information
+        if req.is_partial_day and req.start_time and req.end_time:
+            event['start'] = f"{req.start_date}T{req.start_time}"
+            event['end'] = f"{req.end_date}T{req.end_time}"
+            event['title'] = f"{title} (Partial)"
+            event['allDay'] = False
+
+        events.append(event)
+
+    return jsonify(events)
+
 @app.route('/not_authorized')
 def not_authorized():
     """Page shown when user doesn't have permission"""
