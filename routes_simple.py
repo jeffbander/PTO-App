@@ -30,14 +30,25 @@ def register_routes(app):
 
     @app.route('/user-manual')
     def user_manual():
-        """Display the user manual"""
+        """Display the employee user manual"""
         import os
         import markdown
         manual_path = os.path.join(os.path.dirname(__file__), 'USER_MANUAL.md')
         with open(manual_path, 'r') as f:
             md_content = f.read()
         html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
-        return render_template('user_manual.html', content=html_content)
+        return render_template('user_manual.html', content=html_content, title='Employee Manual')
+
+    @app.route('/manager-manual')
+    def manager_manual():
+        """Display the manager user manual"""
+        import os
+        import markdown
+        manual_path = os.path.join(os.path.dirname(__file__), 'MANAGER_MANUAL.md')
+        with open(manual_path, 'r') as f:
+            md_content = f.read()
+        html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+        return render_template('user_manual.html', content=html_content, title='Manager Manual')
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
