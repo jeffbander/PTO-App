@@ -29,7 +29,7 @@ db.init_app(app)
 
 def run_migrations():
     """Add new columns to existing tables if they don't exist"""
-    from sqlalchemy import text
+    from sqlalchemy import text, inspect
 
     # List of migrations: (table, column, type, default)
     migrations = [
@@ -37,21 +37,27 @@ def run_migrations():
         ('users', 'starting_sick_hours', 'NUMERIC(5,2)', '60.0'),
     ]
 
+    try:
+        inspector = inspect(db.engine)
+        existing_columns = {col['name'] for col in inspector.get_columns('users')}
+    except Exception as e:
+        print(f'Could not inspect database: {e}')
+        existing_columns = set()
+
     for table, column, col_type, default in migrations:
+        if column in existing_columns:
+            print(f'Column {column} already exists in {table}')
+            continue
+
         try:
-            # Check if column exists by trying to select it
-            db.session.execute(text(f'SELECT {column} FROM {table} LIMIT 1'))
-        except Exception:
-            # Column doesn't exist, add it
-            try:
-                db.session.execute(text(
-                    f'ALTER TABLE {table} ADD COLUMN {column} {col_type} DEFAULT {default}'
-                ))
-                db.session.commit()
-                print(f'Added column {column} to {table}')
-            except Exception as e:
-                db.session.rollback()
-                print(f'Could not add column {column} to {table}: {e}')
+            db.session.execute(text(
+                f'ALTER TABLE {table} ADD COLUMN {column} {col_type} DEFAULT {default}'
+            ))
+            db.session.commit()
+            print(f'Added column {column} to {table}')
+        except Exception as e:
+            db.session.rollback()
+            print(f'Could not add column {column} to {table}: {e}')
 
 def initialize_database():
     with app.app_context():

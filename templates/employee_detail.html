@@ -49,11 +49,11 @@
                         <table class="table table-sm table-borderless mb-2">
                             <tr>
                                 <td><strong>Starting:</strong></td>
-                                <td>{{ employee.starting_pto_hours or 60 }} hrs ({{ employee.starting_pto_days }} days)</td>
+                                <td>{{ employee.starting_pto_hours|default(60, true) }} hrs ({{ employee.starting_pto_days|default(8.0, true) }} days)</td>
                             </tr>
                             <tr>
                                 <td><strong>Used:</strong></td>
-                                <td>{{ "%.1f"|format(employee.pto_used_hours) }} hrs ({{ employee.pto_used_days }} days)</td>
+                                <td>{{ "%.1f"|format(employee.pto_used_hours|default(0, true)) }} hrs ({{ employee.pto_used_days|default(0, true) }} days)</td>
                             </tr>
                             <tr class="table-success">
                                 <td><strong>Remaining:</strong></td>
@@ -65,11 +65,11 @@
                         <table class="table table-sm table-borderless mb-2">
                             <tr>
                                 <td><strong>Starting:</strong></td>
-                                <td>{{ employee.starting_sick_hours or 60 }} hrs ({{ employee.starting_sick_days }} days)</td>
+                                <td>{{ employee.starting_sick_hours|default(60, true) }} hrs ({{ employee.starting_sick_days|default(8.0, true) }} days)</td>
                             </tr>
                             <tr>
                                 <td><strong>Used:</strong></td>
-                                <td>{{ "%.1f"|format(employee.sick_used_hours) }} hrs ({{ employee.sick_used_days }} days)</td>
+                                <td>{{ "%.1f"|format(employee.sick_used_hours|default(0, true)) }} hrs ({{ employee.sick_used_days|default(0, true) }} days)</td>
                             </tr>
                             <tr class="table-info">
                                 <td><strong>Remaining:</strong></td>

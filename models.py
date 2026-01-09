@@ -67,19 +67,30 @@ class User(db.Model):
     @property
     def starting_pto_days(self):
         """Convert starting PTO hours to days"""
-        return round(float(self.starting_pto_hours or 60.0) / 7.5, 1)
+        try:
+            hours = getattr(self, 'starting_pto_hours', None) or 60.0
+            return round(float(hours) / 7.5, 1)
+        except Exception:
+            return 8.0
 
     @property
     def starting_sick_days(self):
         """Convert starting sick hours to days"""
-        return round(float(self.starting_sick_hours or 60.0) / 7.5, 1)
+        try:
+            hours = getattr(self, 'starting_sick_hours', None) or 60.0
+            return round(float(hours) / 7.5, 1)
+        except Exception:
+            return 8.0
 
     @property
     def pto_used_hours(self):
         """Calculate PTO hours used (starting - remaining)"""
-        starting = float(self.starting_pto_hours or 60.0)
-        remaining = float(self.pto_balance_hours or 0)
-        return max(0, starting - remaining)
+        try:
+            starting = float(getattr(self, 'starting_pto_hours', None) or 60.0)
+            remaining = float(self.pto_balance_hours or 0)
+            return max(0, starting - remaining)
+        except Exception:
+            return 0.0
 
     @property
     def pto_used_days(self):
@@ -89,9 +100,12 @@ class User(db.Model):
     @property
     def sick_used_hours(self):
         """Calculate sick hours used (starting - remaining)"""
-        starting = float(self.starting_sick_hours or 60.0)
-        remaining = float(self.sick_balance_hours or 0)
-        return max(0, starting - remaining)
+        try:
+            starting = float(getattr(self, 'starting_sick_hours', None) or 60.0)
+            remaining = float(self.sick_balance_hours or 0)
+            return max(0, starting - remaining)
+        except Exception:
+            return 0.0
 
     @property
     def sick_used_days(self):
