@@ -282,10 +282,13 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
 
+{% block extra_scripts %}
 <script>
 // Initialize filter functionality
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('SuperAdmin Dashboard loaded - initializing...');
     // Initialize tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -346,7 +349,9 @@ function filterRequests(filterType) {
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js'></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing SuperAdmin Team Calendar...');
     const calendarEl = document.getElementById('teamCalendar');
+    console.log('Calendar element found:', calendarEl ? 'Yes' : 'No');
 
     // Build calendar events from requests
     const calendarEvents = [

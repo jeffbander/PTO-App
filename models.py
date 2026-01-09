@@ -22,8 +22,10 @@ class User(db.Model):
     email = Column(String(120), unique=True, nullable=False)
     phone = Column(String(20), nullable=True)  # Phone number field
     pin = Column(String(4), nullable=True)  # 4-digit PIN for phone authentication via Twilio
-    pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours (vacation/personal)
-    sick_balance_hours = Column(Numeric(5,2), default=60.0)  # Sick time balance in hours (separate from PTO)
+    pto_balance_hours = Column(Numeric(5,2), default=60.0)  # Current remaining PTO balance in hours
+    sick_balance_hours = Column(Numeric(5,2), default=60.0)  # Current remaining sick time balance in hours
+    starting_pto_hours = Column(Numeric(5,2), default=60.0)  # Annual PTO allocation (starting balance)
+    starting_sick_hours = Column(Numeric(5,2), default=60.0)  # Annual sick time allocation (starting balance)
     pto_refresh_date = Column(Date, default=datetime(2025, 1, 1).date())    # Annual refresh date
     created_at = Column(DateTime, default=get_eastern_time)
     
@@ -61,7 +63,41 @@ class User(db.Model):
     def get_remaining_sick_days(self):
         """Calculate remaining sick time in days"""
         return round(self.get_remaining_sick_hours() / 7.5, 1)
-    
+
+    @property
+    def starting_pto_days(self):
+        """Convert starting PTO hours to days"""
+        return round(float(self.starting_pto_hours or 60.0) / 7.5, 1)
+
+    @property
+    def starting_sick_days(self):
+        """Convert starting sick hours to days"""
+        return round(float(self.starting_sick_hours or 60.0) / 7.5, 1)
+
+    @property
+    def pto_used_hours(self):
+        """Calculate PTO hours used (starting - remaining)"""
+        starting = float(self.starting_pto_hours or 60.0)
+        remaining = float(self.pto_balance_hours or 0)
+        return max(0, starting - remaining)
+
+    @property
+    def pto_used_days(self):
+        """Calculate PTO days used"""
+        return round(self.pto_used_hours / 7.5, 1)
+
+    @property
+    def sick_used_hours(self):
+        """Calculate sick hours used (starting - remaining)"""
+        starting = float(self.starting_sick_hours or 60.0)
+        remaining = float(self.sick_balance_hours or 0)
+        return max(0, starting - remaining)
+
+    @property
+    def sick_used_days(self):
+        """Calculate sick days used"""
+        return round(self.sick_used_hours / 7.5, 1)
+
     def refresh_pto_balance(self, new_balance_hours=60.0):
         """Reset PTO balance to new amount (usually done annually)"""
         from database import db

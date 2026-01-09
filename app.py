@@ -40,8 +40,9 @@ def initialize_database():
             {'name': 'CVI RNs', 'team': 'clinical'},
             {'name': 'CVI MOAs', 'team': 'clinical'},
             {'name': 'CVI Echo Techs', 'team': 'clinical'},
-            {'name': 'Front Desk/Admin', 'team': 'admin'},
-            {'name': 'CT Desk', 'team': 'admin'},
+            {'name': 'Secretary II', 'team': 'admin'},
+            {'name': 'Leadership', 'team': 'admin'},
+            {'name': 'Other', 'team': 'admin'},
         ]
 
         for pos_data in positions_to_create:

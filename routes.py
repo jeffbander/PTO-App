@@ -421,6 +421,8 @@ def edit_employee(employee_id):
                 'position': request.form.get('position'),
                 'pto_balance': float(request.form.get('pto_balance', employee.pto_balance_hours)),
                 'sick_balance': float(request.form.get('sick_balance', employee.sick_balance_hours)),
+                'starting_pto': float(request.form.get('starting_pto', employee.starting_pto_hours or 60)),
+                'starting_sick': float(request.form.get('starting_sick', employee.starting_sick_hours or 60)),
                 'pto_refresh_date': request.form.get('pto_refresh_date')
             }
             pto_system.edit_employee(employee_id, employee_data)
@@ -481,7 +483,13 @@ def employee_detail(employee_id):
     # Calculate total call-out days used (approved call-outs only)
     total_callouts_used = sum(r.duration_days if not r.is_partial_day else r.duration_hours / 7.5
                              for r in pto_requests if r.status == 'approved' and r.is_call_out)
-    
+
+    # Get list of call-out dates (sorted newest first)
+    callout_dates = sorted(
+        [r.start_date for r in pto_requests if r.is_call_out],
+        reverse=True
+    )
+
     # Calculate days until next PTO refresh
     days_until_refresh = None
     refresh_status = 'Not set'
@@ -489,6 +497,7 @@ def employee_detail(employee_id):
         from datetime import date
         today = date.today()
         days_diff = (employee.pto_refresh_date - today).days
+        days_until_refresh = days_diff
         if days_diff > 0:
             refresh_status = f"{days_diff} days"
         elif days_diff == 0:
@@ -506,7 +515,9 @@ def employee_detail(employee_id):
         'approved_callouts': approved_callouts,
         'pending_callouts': pending_callouts,
         'total_callouts_used': round(total_callouts_used, 1),
-        'refresh_status': refresh_status
+        'callout_dates': callout_dates,
+        'refresh_status': refresh_status,
+        'days_until_refresh': days_until_refresh
     }
     
     return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats)

@@ -73,6 +73,8 @@ class PTOTrackerSystem:
         employee.position_id = position.id
         employee.pto_balance_hours = float(employee_data.get('pto_balance', employee.pto_balance_hours))
         employee.sick_balance_hours = float(employee_data.get('sick_balance', employee.sick_balance_hours))
+        employee.starting_pto_hours = float(employee_data.get('starting_pto', employee.starting_pto_hours or 60))
+        employee.starting_sick_hours = float(employee_data.get('starting_sick', employee.starting_sick_hours or 60))
 
         if 'pto_refresh_date' in employee_data and employee_data['pto_refresh_date']:
             employee.pto_refresh_date = datetime.strptime(employee_data['pto_refresh_date'], '%Y-%m-%d').date()
