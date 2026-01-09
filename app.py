@@ -27,12 +27,41 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 # Initialize the app with the extension
 db.init_app(app)
 
+def run_migrations():
+    """Add new columns to existing tables if they don't exist"""
+    from sqlalchemy import text
+
+    # List of migrations: (table, column, type, default)
+    migrations = [
+        ('users', 'starting_pto_hours', 'NUMERIC(5,2)', '60.0'),
+        ('users', 'starting_sick_hours', 'NUMERIC(5,2)', '60.0'),
+    ]
+
+    for table, column, col_type, default in migrations:
+        try:
+            # Check if column exists by trying to select it
+            db.session.execute(text(f'SELECT {column} FROM {table} LIMIT 1'))
+        except Exception:
+            # Column doesn't exist, add it
+            try:
+                db.session.execute(text(
+                    f'ALTER TABLE {table} ADD COLUMN {column} {col_type} DEFAULT {default}'
+                ))
+                db.session.commit()
+                print(f'Added column {column} to {table}')
+            except Exception as e:
+                db.session.rollback()
+                print(f'Could not add column {column} to {table}: {e}')
+
 def initialize_database():
     with app.app_context():
         # Create tables if they don't exist (but don't drop existing data)
         # WARNING: Only use db.drop_all() during development if you need to reset schema
         # db.drop_all()  # COMMENTED OUT - Enable ONLY to update schema during development
         db.create_all()
+
+        # Run migrations to add new columns to existing tables
+        run_migrations()
 
         # Initialize positions if they don't exist
         positions_to_create = [
