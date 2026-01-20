@@ -3,268 +3,428 @@
 {% block title %}{{ employee.name }} - Employee Details{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('employees') }}">Employees</a></li>
-                <li class="breadcrumb-item active">{{ employee.name }}</li>
-            </ol>
-        </nav>
-        <h2><i class="fas fa-user me-2"></i>Employee Details</h2>
+<div class="container-fluid" style="max-width: 1200px;">
+    <!-- Breadcrumb -->
+    <nav class="d-flex align-items-center gap-1 small text-muted mb-2">
+        <a href="{{ url_for('dashboard') }}" class="text-muted text-decoration-none hover-primary">Dashboard</a>
+        <i class="fas fa-chevron-right" style="font-size: 0.65rem;"></i>
+        <a href="{{ url_for('employees') }}" class="text-muted text-decoration-none hover-primary">Employees</a>
+        <i class="fas fa-chevron-right" style="font-size: 0.65rem;"></i>
+        <span class="text-dark fw-medium">{{ employee.name }}</span>
+    </nav>
+
+    <!-- Page Title -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <i class="fas fa-users text-dark"></i>
+        <h1 class="h5 fw-bold mb-0">Employee Details</h1>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-id-card me-2"></i>{{ employee.name }}
-                    {% if '[INACTIVE]' in employee.name %}
-                        <span class="badge bg-secondary ms-2">Inactive</span>
-                    {% else %}
-                        <span class="badge bg-success ms-2">Active</span>
-                    {% endif %}
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Contact Information</h6>
-                        <p><strong>Email:</strong> {{ employee.email }}</p>
-                        <p><strong>Phone:</strong> {{ employee.phone or 'Not provided' }}</p>
-
-                        <h6 class="mt-3">Position Details</h6>
-                        <p><strong>Team:</strong>
-                            <span class="badge bg-{{ 'primary' if employee.team == 'clinical' else 'secondary' }}">
-                                {{ employee.team|title }}
-                            </span>
-                        </p>
-                        <p><strong>Position:</strong> {{ employee.position }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>PTO Information</h6>
-                        <p><strong>PTO Balance:</strong> {{ employee.pto_balance_hours }} hours ({{ "%.1f"|format(employee.pto_balance_days) }} days)</p>
-                        <p><strong>Sick Time Balance:</strong> {{ employee.sick_balance_hours }} hours ({{ "%.1f"|format(employee.sick_balance_days) }} days)</p>
-                        {% if employee.pto_refresh_date %}
-                        <p><strong>PTO Refresh Date:</strong> {{ employee.pto_refresh_date.strftime('%B %d, %Y') }}</p>
-                        {% if stats.days_until_refresh is not none %}
-                        <p><strong>Days Until Refresh:</strong> {{ stats.days_until_refresh }} days</p>
-                        {% endif %}
+    <!-- ROW 1: Employee Info + Balance Cards -->
+    <div class="row g-3">
+        <!-- Employee Info - 4 cols -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="avatar-sm">{{ employee.name.split()[0][0] }}{{ employee.name.split()[-1][0] if employee.name.split()|length > 1 else '' }}</div>
+                        <span class="fw-semibold" style="font-size: 0.95rem;">{{ employee.name }}</span>
+                        {% if '[INACTIVE]' in employee.name %}
+                            <span class="badge bg-secondary ms-auto" style="font-size: 0.65rem;">Inactive</span>
                         {% else %}
-                        <p><strong>PTO Refresh Date:</strong> Not set</p>
+                            <span class="badge bg-success ms-auto" style="font-size: 0.65rem;">Active</span>
                         {% endif %}
                     </div>
                 </div>
-
-                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                <div class="mt-4">
-                    <a href="{{ url_for('edit_employee', employee_id=employee.id) }}" class="btn btn-primary">
-                        <i class="fas fa-edit me-2"></i>Edit Employee
-                    </a>
-                    {% if '[INACTIVE]' not in employee.name %}
-                    <button class="btn btn-danger" onclick="confirmDelete({{ employee.id }}, '{{ employee.name }}')">
-                        <i class="fas fa-trash me-2"></i>Delete Employee
-                    </button>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <!-- PTO Statistics Card -->
-        <div class="card mb-3">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>PTO Statistics</h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <strong>Total Requests:</strong> {{ stats.total_requests }}<br>
-                    <strong>Approved:</strong> <span class="text-success">{{ stats.approved_requests }}</span><br>
-                    <strong>Pending:</strong> <span class="text-warning">{{ stats.pending_requests }}</span><br>
-                    <strong>Denied:</strong> <span class="text-danger">{{ stats.denied_requests }}</span>
-                </div>
-                <div class="mb-2">
-                    <strong>Total PTO Used:</strong> {{ stats.total_pto_used }} days
-                </div>
-            </div>
-        </div>
-
-        <!-- Call-Out Tracking Card -->
-        <div class="card">
-            <div class="card-header bg-danger text-white">
-                <h5 class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>Call-Out Tracking</h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <strong>Total Call-Outs:</strong> {{ stats.total_callouts }}<br>
-                    <strong>Approved:</strong> <span class="text-success">{{ stats.approved_callouts }}</span><br>
-                    <strong>Pending:</strong> <span class="text-warning">{{ stats.pending_callouts }}</span>
-                </div>
-                <div class="mb-2">
-                    <strong>Sick Days Used (Call-Outs):</strong> {{ stats.total_callouts_used }} days
-                </div>
-                {% if stats.total_callouts > 0 %}
-                <div class="alert alert-info mt-3 mb-0" role="alert">
-                    <small><i class="fas fa-info-circle me-1"></i>Call-outs are tracked separately and deduct from sick time balance.</small>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Tardiness Tracking Card -->
-        <div class="card mt-3">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Tardiness Tracking</h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <strong>Total Incidents:</strong> {{ stats.total_tardiness }}<br>
-                    <strong>Total Minutes Late:</strong> {{ stats.total_tardiness_minutes }} min
-                </div>
-
-                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                <!-- Add Tardiness Form -->
-                <hr>
-                <h6><i class="fas fa-plus-circle me-1"></i>Record Tardiness</h6>
-                <form id="tardinessForm" class="mt-2">
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <input type="date" class="form-control form-control-sm" id="tardiness_date" required>
+                <div class="card-body p-3">
+                    <div class="d-flex flex-column gap-1" style="font-size: 0.8125rem;">
+                        <!-- Editable Name -->
+                        <div class="editable-field d-flex align-items-center gap-2 text-muted" data-field="name">
+                            <i class="fas fa-user" style="font-size: 0.75rem;"></i>
+                            <span class="field-value">{{ employee.name }}</span>
+                            {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                            <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                            {% endif %}
                         </div>
-                        <div class="col-6">
-                            <input type="number" class="form-control form-control-sm" id="tardiness_minutes" placeholder="Minutes late" min="1" required>
+                        <!-- Editable Email -->
+                        <div class="editable-field d-flex align-items-center gap-2 text-muted" data-field="email">
+                            <i class="fas fa-envelope" style="font-size: 0.75rem;"></i>
+                            <span class="field-value text-primary text-truncate">{{ employee.email }}</span>
+                            {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                            <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                            {% endif %}
                         </div>
-                        <div class="col-12">
-                            <input type="text" class="form-control form-control-sm" id="tardiness_reason" placeholder="Reason (optional)">
+                        <!-- Editable Phone -->
+                        <div class="editable-field d-flex align-items-center gap-2 text-muted" data-field="phone">
+                            <i class="fas fa-phone" style="font-size: 0.75rem;"></i>
+                            <span class="field-value">{{ employee.phone or 'Not provided' }}</span>
+                            {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                            <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                            {% endif %}
                         </div>
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-warning btn-sm w-100">
-                                <i class="fas fa-plus me-1"></i>Add Tardiness
-                            </button>
+                        <!-- Editable Position (dropdown) -->
+                        <div class="editable-field d-flex align-items-center gap-2 text-muted" data-field="position_id" data-current-value="{{ employee.position_id }}">
+                            <i class="fas fa-briefcase" style="font-size: 0.75rem;"></i>
+                            <span class="field-value">{{ employee.position }}</span>
+                            {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                            <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                            {% endif %}
+                        </div>
+                        <!-- Team (derived from position) -->
+                        <div class="d-flex align-items-center gap-2 text-muted">
+                            <i class="fas fa-users" style="font-size: 0.75rem;"></i>
+                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.65rem;" id="team-badge">{{ employee.team|title }}</span>
+                        </div>
+                        <!-- Editable PIN -->
+                        <div class="editable-field d-flex align-items-center gap-2 text-muted" data-field="pin">
+                            <i class="fas fa-key" style="font-size: 0.75rem;"></i>
+                            <span class="field-value">{{ '****' if employee.pin else 'Not set' }}</span>
+                            {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                            <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                            {% endif %}
                         </div>
                     </div>
-                </form>
-                {% endif %}
-
-                {% if tardiness_records %}
-                <hr>
-                <h6>Recent Tardiness</h6>
-                <div class="list-group list-group-flush" style="max-height: 150px; overflow-y: auto;">
-                    {% for record in tardiness_records[:5] %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
-                        <small>
-                            <strong>{{ record.date }}</strong> - {{ record.minutes_late }} min
-                            {% if record.reason %}<br><span class="text-muted">{{ record.reason }}</span>{% endif %}
-                        </small>
-                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTardiness({{ record.id }})">
-                            <i class="fas fa-trash"></i>
+                    {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                    <div class="d-flex gap-2 pt-2 mt-2 border-top">
+                        {% if '[INACTIVE]' not in employee.name %}
+                        <button class="btn btn-sm btn-outline-danger" style="font-size: 0.75rem; height: 28px; line-height: 1.5;" onclick="confirmDelete({{ employee.id }}, '{{ employee.name }}')">
+                            <i class="fas fa-trash me-1" style="font-size: 0.65rem;"></i>Delete
                         </button>
                         {% endif %}
                     </div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
-                {% endif %}
+            </div>
+        </div>
+
+        <!-- PTO Balance - 4 cols -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-2 px-3" style="background-color: rgba(0, 93, 170, 0.1);">
+                    <h6 class="mb-0 fw-semibold text-primary" style="font-size: 0.8125rem;">PTO Balance</h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="text-center mb-2 editable-field" data-field="pto_balance_hours">
+                        <span class="text-success fw-bold field-value" style="font-size: 1.875rem;" id="pto-balance-display">{{ employee.pto_balance_hours or 0 }}</span>
+                        <span class="text-muted small ms-1">hrs remaining</span>
+                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                        <button class="btn btn-link btn-sm p-0 ms-1 edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                        {% endif %}
+                    </div>
+                    {% set pto_pct = (((employee.pto_balance_hours or 0)|float / employee.starting_pto_hours * 100)|int) if employee.starting_pto_hours and employee.starting_pto_hours > 0 else 0 %}
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ pto_pct }}%" id="pto-progress-bar"></div>
+                    </div>
+                    <table class="w-100" style="font-size: 0.75rem;">
+                        <tbody>
+                            <tr class="border-bottom">
+                                <td class="py-1 text-muted">Starting</td>
+                                <td class="py-1 text-end fw-medium">{{ employee.starting_pto_hours }} hrs</td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="py-1 text-muted">Used</td>
+                                <td class="py-1 text-end fw-medium">{{ employee.pto_used_hours or 0 }} hrs</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 text-muted">Remaining</td>
+                                <td class="py-1 text-end fw-semibold text-success" id="pto-remaining">{{ employee.pto_balance_hours or 0 }} hrs</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sick Balance - 4 cols -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-2 px-3" style="background-color: rgba(0, 93, 170, 0.1);">
+                    <h6 class="mb-0 fw-semibold text-primary" style="font-size: 0.8125rem;">Sick Time Balance</h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="text-center mb-2 editable-field" data-field="sick_balance_hours">
+                        <span class="text-success fw-bold field-value" style="font-size: 1.875rem;" id="sick-balance-display">{{ employee.sick_balance_hours or 0 }}</span>
+                        <span class="text-muted small ms-1">hrs remaining</span>
+                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                        <button class="btn btn-link btn-sm p-0 ms-1 edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                        {% endif %}
+                    </div>
+                    {% set sick_pct = (((employee.sick_balance_hours or 0)|float / employee.starting_sick_hours * 100)|int) if employee.starting_sick_hours and employee.starting_sick_hours > 0 else 0 %}
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ sick_pct }}%" id="sick-progress-bar"></div>
+                    </div>
+                    <table class="w-100" style="font-size: 0.75rem;">
+                        <tbody>
+                            <tr class="border-bottom">
+                                <td class="py-1 text-muted">Starting</td>
+                                <td class="py-1 text-end fw-medium">{{ employee.starting_sick_hours }} hrs</td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="py-1 text-muted">Used</td>
+                                <td class="py-1 text-end fw-medium">{{ employee.sick_used_hours or 0 }} hrs</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 text-muted">Remaining</td>
+                                <td class="py-1 text-end fw-semibold text-success" id="sick-remaining">{{ employee.sick_balance_hours or 0 }} hrs</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <!-- Editable PTO Refresh Date -->
+                    <div class="mt-2 pt-2 border-top editable-field" data-field="pto_refresh_date" style="font-size: 0.625rem;">
+                        <span class="text-muted">Refresh: </span>
+                        <span class="field-value">{{ employee.pto_refresh_date.strftime('%m/%d/%Y') if employee.pto_refresh_date else 'Not set' }}</span>
+                        {% if stats.days_until_refresh is not none %}
+                        <span class="text-muted">({{ stats.days_until_refresh }} days)</span>
+                        {% endif %}
+                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                        <button class="btn btn-link btn-sm p-0 ms-1 edit-btn" onclick="startEdit(this)" style="font-size: 0.55rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- PTO Request History -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Request History</h5>
-                <div class="btn-group" role="group" aria-label="View toggle">
-                    <button type="button" class="btn btn-primary btn-sm active" id="listViewBtn" onclick="showListView()">
-                        <i class="fas fa-list me-1"></i>List
-                    </button>
-                    <button type="button" class="btn btn-outline-primary btn-sm" id="calendarViewBtn" onclick="showCalendarView()">
-                        <i class="fas fa-calendar me-1"></i>Calendar
-                    </button>
+    <!-- ROW 2: Sidebar + Request History -->
+    <div class="row g-3 mt-1">
+        <!-- Left Sidebar - 3 cols -->
+        <div class="col-lg-3">
+            <!-- PTO Statistics Card -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header text-white py-2 px-3" style="background-color: #f59e0b;">
+                    <span class="fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                        <i class="fas fa-calendar-check" style="font-size: 0.7rem;"></i>
+                        PTO Statistics
+                    </span>
+                </div>
+                <div class="card-body p-3" style="font-size: 0.75rem;">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Total Requests:</span>
+                        <span class="fw-medium">{{ stats.total_requests }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Approved:</span>
+                        <span class="fw-medium text-success">{{ stats.approved_requests }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Pending:</span>
+                        <span class="fw-medium" style="color: #f59e0b;">{{ stats.pending_requests }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Denied:</span>
+                        <span class="fw-medium text-danger">{{ stats.denied_requests }}</span>
+                    </div>
                 </div>
             </div>
-            <div class="card-body">
-                <!-- List View -->
-                <div id="listView">
-                    {% if pto_requests %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Type</th>
-                                    <th>Dates</th>
-                                    <th>Duration</th>
-                                    <th>Status</th>
-                                    <th>Submitted</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for request in pto_requests %}
-                                <tr>
-                                    <td>#{{ request.id }}</td>
-                                    <td>
-                                        {% if request.is_call_out %}
-                                            <span class="badge bg-danger">
-                                                <i class="fas fa-exclamation-circle"></i> CALL OUT
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">{{ request.pto_type }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {{ request.start_date }} to {{ request.end_date }}
-                                        {% if request.is_partial_day %}
-                                        <br><small class="text-muted">
-                                            <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
-                                        </small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if request.is_partial_day %}
-                                            {{ "%.1f"|format(request.duration_hours) }} hours
-                                        {% else %}
-                                            {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge status-{{ request.status }}">
-                                            {{ request.status|title }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">No PTO requests found for this employee.</p>
+
+            <!-- Call-Outs Card (expandable) -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-danger text-white py-2 px-3">
+                    <span class="fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 0.7rem;"></i>
+                        Call-Outs
+                    </span>
+                </div>
+                <div class="card-body p-3">
+                    <button class="btn btn-link w-100 p-0 d-flex align-items-center justify-content-between text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#calloutDetails" aria-expanded="false">
+                        <span class="fw-bold text-dark" style="font-size: 1.25rem;">{{ stats.total_callouts }}</span>
+                        <span class="text-muted d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                            {% if stats.total_callouts > 0 %}View dates{% else %}None recorded{% endif %}
+                            <i class="fas fa-chevron-down" style="font-size: 0.6rem; transition: transform 0.2s;"></i>
+                        </span>
+                    </button>
+                    {% if stats.total_callouts > 0 %}
+                    <div class="collapse mt-2 pt-2 border-top" id="calloutDetails">
+                        <div class="small">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Approved:</span>
+                                <span class="text-success">{{ stats.approved_callouts }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Pending:</span>
+                                <span style="color: #f59e0b;">{{ stats.pending_callouts }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Sick Days Used:</span>
+                                <span>{{ stats.total_callouts_used }} days</span>
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
+            </div>
 
-                <!-- Calendar View -->
-                <div id="calendarView" style="display: none;">
-                    <div class="mb-3">
-                        <span class="badge bg-success me-2"><i class="fas fa-circle"></i> Approved</span>
-                        <span class="badge bg-warning text-dark me-2"><i class="fas fa-circle"></i> Pending</span>
-                        <span class="badge bg-danger me-2"><i class="fas fa-circle"></i> Call-Out/Denied</span>
-                        <span class="badge me-2" style="background-color: #fd7e14; color: white;"><i class="fas fa-circle"></i> Tardiness</span>
-                        <span class="badge me-2" style="background-color: #6f42c1; color: white;"><i class="fas fa-circle"></i> Holiday</span>
+            <!-- Tardiness Tracking Card -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header text-white py-2 px-3" style="background-color: #f59e0b;">
+                    <span class="fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                        <i class="fas fa-clock" style="font-size: 0.7rem;"></i>
+                        Tardiness
+                    </span>
+                </div>
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.75rem;">
+                        <span class="text-muted">Incidents:</span>
+                        <span class="fw-semibold">{{ stats.total_tardiness }}</span>
                     </div>
-                    <div id="employeeCalendar"></div>
+                    <div class="d-flex justify-content-between" style="font-size: 0.75rem;">
+                        <span class="text-muted">Minutes Late:</span>
+                        <span class="fw-semibold">{{ stats.total_tardiness_minutes }} min</span>
+                    </div>
+
+                    {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                    <!-- Add Tardiness Form -->
+                    <div class="border-top pt-2 mt-2">
+                        <p class="text-muted fw-medium mb-2 d-flex align-items-center gap-1" style="font-size: 0.625rem;">
+                            <i class="fas fa-plus" style="font-size: 0.5rem;"></i> Record Tardiness
+                        </p>
+                        <form id="tardinessForm">
+                            <div class="row g-1 mb-1">
+                                <div class="col-6">
+                                    <input type="date" class="form-control form-control-sm" id="tardiness_date" style="font-size: 0.75rem; height: 28px;" required>
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" class="form-control form-control-sm" id="tardiness_minutes" placeholder="Min late" min="1" style="font-size: 0.75rem; height: 28px;" required>
+                                </div>
+                            </div>
+                            <input type="text" class="form-control form-control-sm mb-1" id="tardiness_reason" placeholder="Reason (optional)" style="font-size: 0.75rem; height: 28px;">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100" style="font-size: 0.75rem; height: 28px;">
+                                <i class="fas fa-plus me-1" style="font-size: 0.6rem;"></i>Add
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    {% if tardiness_records %}
+                    <div class="border-top pt-2 mt-2">
+                        <p class="text-muted fw-medium mb-1" style="font-size: 0.625rem;">Recent</p>
+                        <div style="max-height: 100px; overflow-y: auto;">
+                            {% for record in tardiness_records[:5] %}
+                            <div class="d-flex justify-content-between align-items-start py-1" style="font-size: 0.75rem;">
+                                <span class="text-muted">
+                                    {{ record.date }} - {{ record.minutes_late }}min
+                                </span>
+                                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                                <button class="btn btn-link btn-sm text-danger p-0" onclick="deleteTardiness({{ record.id }})" style="font-size: 0.65rem;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Request History - 9 cols -->
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white py-2 px-3 d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.8125rem;">
+                        <i class="fas fa-calendar"></i>
+                        Request History
+                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        {% if session.user_role in ['admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor'] %}
+                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addPTOModal" style="font-size: 0.75rem;">
+                            <i class="fas fa-plus me-1"></i>Add PTO
+                        </button>
+                        {% endif %}
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-light btn-sm active" id="listViewBtn" onclick="showListView()" style="font-size: 0.75rem;">
+                                <i class="fas fa-list"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-light btn-sm" id="calendarViewBtn" onclick="showCalendarView()" style="font-size: 0.75rem;">
+                                <i class="fas fa-calendar"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- List View -->
+                    <div id="listView">
+                        {% if pto_requests %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0" style="font-size: 0.8125rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2 px-3 fw-medium" style="font-size: 0.75rem;">Dates</th>
+                                        <th class="py-2 px-3 fw-medium" style="font-size: 0.75rem;">Type</th>
+                                        <th class="py-2 px-3 fw-medium" style="font-size: 0.75rem;">Days</th>
+                                        <th class="py-2 px-3 fw-medium" style="font-size: 0.75rem;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for request in pto_requests %}
+                                    <tr class="{{ 'border-start border-danger border-2' if request.is_call_out else '' }}">
+                                        <td class="py-2 px-3" style="font-size: 0.75rem;">
+                                            {{ request.start_date }} to {{ request.end_date }}
+                                            {% if request.is_partial_day %}
+                                            <br><small class="text-muted">{{ request.start_time }} - {{ request.end_time }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td class="py-2 px-3">
+                                            {% if request.is_call_out %}
+                                                <span class="badge text-white" style="font-size: 0.625rem; background-color: #dc3545;">
+                                                    <i class="fas fa-exclamation-circle me-1"></i>CALL OUT
+                                                </span>
+                                            {% else %}
+                                                <span class="badge" style="font-size: 0.625rem; background-color: #e0f2fe; color: #0369a1;">
+                                                    {{ request.pto_type }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="py-2 px-3" style="font-size: 0.75rem;">
+                                            {% if request.is_partial_day %}
+                                                {{ "%.1f"|format(request.duration_hours) }} hrs
+                                            {% else %}
+                                                {{ request.duration_days }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="py-2 px-3">
+                                            {% if request.status == 'approved' %}
+                                                <span class="badge d-inline-flex align-items-center gap-1" style="font-size: 0.625rem; background-color: #dcfce7; color: #15803d;">
+                                                    <i class="fas fa-check-circle" style="font-size: 0.5rem;"></i>Approved
+                                                </span>
+                                            {% elif request.status == 'pending' %}
+                                                <span class="badge d-inline-flex align-items-center gap-1" style="font-size: 0.625rem; background-color: #fef3c7; color: #b45309;">
+                                                    <i class="fas fa-clock" style="font-size: 0.5rem;"></i>Pending
+                                                </span>
+                                            {% elif request.status == 'denied' %}
+                                                <span class="badge d-inline-flex align-items-center gap-1" style="font-size: 0.625rem; background-color: #fee2e2; color: #dc2626;">
+                                                    <i class="fas fa-times-circle" style="font-size: 0.5rem;"></i>Denied
+                                                </span>
+                                            {% else %}
+                                                <span class="badge d-inline-flex align-items-center gap-1" style="font-size: 0.625rem; background-color: #dbeafe; color: #1d4ed8;">
+                                                    <i class="fas fa-clock" style="font-size: 0.5rem;"></i>{{ request.status|title }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-file-alt fa-2x text-muted mb-2" style="opacity: 0.3;"></i>
+                            <p class="text-muted mb-0" style="font-size: 0.875rem;">No PTO requests found for this employee</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Calendar View -->
+                    <div id="calendarView" style="display: none;" class="p-3">
+                        <div class="mb-3" style="font-size: 0.75rem;">
+                            <span class="badge bg-success me-1"><i class="fas fa-circle" style="font-size: 0.4rem;"></i></span> Approved
+                            <span class="badge text-dark me-1 ms-2" style="background-color: #fef3c7;"><i class="fas fa-circle" style="font-size: 0.4rem;"></i></span> Pending
+                            <span class="badge bg-danger me-1 ms-2"><i class="fas fa-circle" style="font-size: 0.4rem;"></i></span> Call-Out/Denied
+                            <span class="badge me-1 ms-2" style="background-color: #fd7e14; color: white;"><i class="fas fa-circle" style="font-size: 0.4rem;"></i></span> Tardiness
+                            <span class="badge me-1 ms-2" style="background-color: #6f42c1; color: white;"><i class="fas fa-circle" style="font-size: 0.4rem;"></i></span> Holiday
+                        </div>
+                        <div id="employeeCalendar"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -318,11 +478,138 @@
         </div>
     </div>
 </div>
+
+<!-- Add PTO Request Modal -->
+<div class="modal fade" id="addPTOModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-calendar-plus me-2"></i>Add PTO Request for {{ employee.name }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addPTOForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <!-- Start Date -->
+                        <div class="col-md-6">
+                            <label for="pto_start_date" class="form-label">Start Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="pto_start_date" name="start_date" required>
+                        </div>
+                        <!-- End Date -->
+                        <div class="col-md-6">
+                            <label for="pto_end_date" class="form-label">End Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="pto_end_date" name="end_date" required>
+                        </div>
+                        <!-- PTO Type -->
+                        <div class="col-md-6">
+                            <label for="pto_type" class="form-label">PTO Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="pto_type" name="pto_type" required>
+                                <option value="">Select type...</option>
+                                <option value="Vacation">Vacation</option>
+                                <option value="Personal">Personal</option>
+                                <option value="Sick Leave">Sick Leave</option>
+                            </select>
+                        </div>
+                        <!-- Partial Day Toggle -->
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_partial_day" name="is_partial_day">
+                                <label class="form-check-label" for="is_partial_day">
+                                    Partial Day Request
+                                </label>
+                            </div>
+                        </div>
+                        <!-- Partial Day Time Pickers (hidden by default) -->
+                        <div class="col-md-6 partial-day-fields" style="display: none;">
+                            <label for="pto_start_time" class="form-label">Start Time</label>
+                            <input type="time" class="form-control" id="pto_start_time" name="start_time">
+                        </div>
+                        <div class="col-md-6 partial-day-fields" style="display: none;">
+                            <label for="pto_end_time" class="form-label">End Time</label>
+                            <input type="time" class="form-control" id="pto_end_time" name="end_time">
+                        </div>
+                        <!-- Call-Out Toggle -->
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_call_out" name="is_call_out">
+                                <label class="form-check-label" for="is_call_out">
+                                    <span class="badge bg-danger me-1">Call-Out</span>
+                                    Mark as call-out (auto-approves, deducts from sick time)
+                                </label>
+                            </div>
+                        </div>
+                        <!-- Reason/Notes -->
+                        <div class="col-12">
+                            <label for="pto_reason" class="form-label">Reason/Notes</label>
+                            <textarea class="form-control" id="pto_reason" name="reason" rows="3" placeholder="Optional notes about this PTO request..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Balance Warning -->
+                    <div class="alert alert-info mt-3 mb-0" id="balanceInfo">
+                        <small>
+                            <strong>Current Balances:</strong><br>
+                            PTO: <span id="modalPtoBalance">{{ employee.pto_balance_hours or 0 }}</span> hrs |
+                            Sick: <span id="modalSickBalance">{{ employee.sick_balance_hours or 0 }}</span> hrs
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Submit PTO Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_head %}
 <!-- FullCalendar CSS -->
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css' rel='stylesheet' />
+<style>
+    .hover-primary:hover { color: var(--sinai-primary) !important; }
+    [data-bs-toggle="collapse"][aria-expanded="true"] .fa-chevron-down {
+        transform: rotate(180deg);
+    }
+    /* Inline edit styles */
+    .editable-field .edit-btn {
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .editable-field:hover .edit-btn {
+        opacity: 1;
+    }
+    .editable-field .edit-input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        flex: 1;
+    }
+    .editable-field .edit-input {
+        font-size: inherit;
+        padding: 0.15rem 0.35rem;
+        height: auto;
+        min-width: 80px;
+    }
+    .editable-field .edit-actions {
+        display: flex;
+        gap: 0.15rem;
+    }
+    .editable-field .edit-actions .btn {
+        padding: 0.1rem 0.3rem;
+        font-size: 0.65rem;
+    }
+    .edit-feedback {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 250px;
+    }
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -341,22 +628,227 @@ function confirmDelete(employeeId, employeeName) {
     modal.show();
 }
 
+// Positions data for dropdown (loaded on page load)
+let positionsData = {};
+
+// Load positions data
+fetch('/api/positions-list')
+    .then(response => response.json())
+    .then(data => {
+        positionsData = data.positions || [];
+    })
+    .catch(error => console.error('Error loading positions:', error));
+
+// Show feedback message
+function showFeedback(message, type = 'success') {
+    const existing = document.querySelector('.edit-feedback');
+    if (existing) existing.remove();
+
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} edit-feedback alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alert);
+
+    setTimeout(() => {
+        alert.classList.remove('show');
+        setTimeout(() => alert.remove(), 150);
+    }, 3000);
+}
+
+// Start inline editing
+function startEdit(btn) {
+    const field = btn.closest('.editable-field');
+    const fieldName = field.dataset.field;
+    const valueSpan = field.querySelector('.field-value');
+    const currentValue = valueSpan.textContent.trim();
+
+    // Hide the value and edit button
+    valueSpan.style.display = 'none';
+    btn.style.display = 'none';
+
+    // Create input wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'edit-input-wrapper';
+
+    let input;
+    if (fieldName === 'position_id') {
+        // Position dropdown
+        input = document.createElement('select');
+        input.className = 'form-select form-select-sm edit-input';
+        const currentPosId = field.dataset.currentValue;
+        positionsData.forEach(pos => {
+            const option = document.createElement('option');
+            option.value = pos.id;
+            option.textContent = `${pos.name} (${pos.team})`;
+            if (pos.id == currentPosId) option.selected = true;
+            input.appendChild(option);
+        });
+    } else if (fieldName === 'pto_refresh_date') {
+        // Date picker
+        input = document.createElement('input');
+        input.type = 'date';
+        input.className = 'form-control form-control-sm edit-input';
+        // Parse MM/DD/YYYY to YYYY-MM-DD
+        if (currentValue && currentValue !== 'Not set') {
+            const parts = currentValue.split('/');
+            if (parts.length === 3) {
+                input.value = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+            }
+        }
+    } else if (fieldName === 'pto_balance_hours' || fieldName === 'sick_balance_hours') {
+        // Number input
+        input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'form-control form-control-sm edit-input';
+        input.step = '0.5';
+        input.min = '0';
+        input.value = parseFloat(currentValue) || 0;
+        input.style.width = '80px';
+    } else if (fieldName === 'pin') {
+        // PIN input (4 digits)
+        input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control form-control-sm edit-input';
+        input.maxLength = 4;
+        input.pattern = '[0-9]{4}';
+        input.placeholder = '4-digit PIN';
+        input.style.width = '100px';
+    } else {
+        // Text input
+        input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control form-control-sm edit-input';
+        input.value = currentValue === 'Not provided' || currentValue === 'Not set' ? '' : currentValue;
+    }
+
+    // Create action buttons
+    const actions = document.createElement('div');
+    actions.className = 'edit-actions';
+    actions.innerHTML = `
+        <button type="button" class="btn btn-success btn-sm" onclick="saveEdit(this)"><i class="fas fa-check"></i></button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="cancelEdit(this)"><i class="fas fa-times"></i></button>
+    `;
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(actions);
+    field.insertBefore(wrapper, valueSpan.nextSibling);
+    input.focus();
+
+    // Handle Enter key to save
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit(actions.querySelector('.btn-success'));
+        } else if (e.key === 'Escape') {
+            cancelEdit(actions.querySelector('.btn-secondary'));
+        }
+    });
+}
+
+// Cancel editing
+function cancelEdit(btn) {
+    const field = btn.closest('.editable-field');
+    const wrapper = field.querySelector('.edit-input-wrapper');
+    const valueSpan = field.querySelector('.field-value');
+    const editBtn = field.querySelector('.edit-btn');
+
+    wrapper.remove();
+    valueSpan.style.display = '';
+    editBtn.style.display = '';
+}
+
+// Save the edited value
+function saveEdit(btn) {
+    const field = btn.closest('.editable-field');
+    const fieldName = field.dataset.field;
+    const wrapper = field.querySelector('.edit-input-wrapper');
+    const input = wrapper.querySelector('input, select');
+    const valueSpan = field.querySelector('.field-value');
+    const editBtn = field.querySelector('.edit-btn');
+
+    let newValue = input.value;
+
+    // Validate PIN if applicable
+    if (fieldName === 'pin' && newValue && !/^\d{4}$/.test(newValue)) {
+        showFeedback('PIN must be exactly 4 digits', 'danger');
+        return;
+    }
+
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch(`/api/employee/${employeeId}/update`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            field: fieldName,
+            value: newValue
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update display value
+            let displayValue = data.display_value || newValue;
+            valueSpan.textContent = displayValue;
+
+            // Update related UI elements if needed
+            if (fieldName === 'position_id' && data.team) {
+                document.getElementById('team-badge').textContent = data.team.charAt(0).toUpperCase() + data.team.slice(1);
+                field.dataset.currentValue = newValue;
+            } else if (fieldName === 'pto_balance_hours') {
+                document.getElementById('pto-remaining').textContent = displayValue + ' hrs';
+                // Update progress bar
+                const pct = Math.min(100, (parseFloat(newValue) / 60) * 100);
+                document.getElementById('pto-progress-bar').style.width = pct + '%';
+            } else if (fieldName === 'sick_balance_hours') {
+                document.getElementById('sick-remaining').textContent = displayValue + ' hrs';
+                // Update progress bar
+                const pct = Math.min(100, (parseFloat(newValue) / 56) * 100);
+                document.getElementById('sick-progress-bar').style.width = pct + '%';
+            }
+
+            showFeedback('Updated successfully!', 'success');
+        } else {
+            showFeedback(data.error || 'Failed to update', 'danger');
+        }
+
+        // Restore UI
+        wrapper.remove();
+        valueSpan.style.display = '';
+        editBtn.style.display = '';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showFeedback('Failed to save changes', 'danger');
+        wrapper.remove();
+        valueSpan.style.display = '';
+        editBtn.style.display = '';
+    });
+}
+
 function showListView() {
     document.getElementById('listView').style.display = 'block';
     document.getElementById('calendarView').style.display = 'none';
-    document.getElementById('listViewBtn').classList.add('active', 'btn-primary');
-    document.getElementById('listViewBtn').classList.remove('btn-outline-primary');
-    document.getElementById('calendarViewBtn').classList.remove('active', 'btn-primary');
-    document.getElementById('calendarViewBtn').classList.add('btn-outline-primary');
+    document.getElementById('listViewBtn').classList.add('active', 'btn-light');
+    document.getElementById('listViewBtn').classList.remove('btn-outline-light');
+    document.getElementById('calendarViewBtn').classList.remove('active', 'btn-light');
+    document.getElementById('calendarViewBtn').classList.add('btn-outline-light');
 }
 
 function showCalendarView() {
     document.getElementById('listView').style.display = 'none';
     document.getElementById('calendarView').style.display = 'block';
-    document.getElementById('listViewBtn').classList.remove('active', 'btn-primary');
-    document.getElementById('listViewBtn').classList.add('btn-outline-primary');
-    document.getElementById('calendarViewBtn').classList.add('active', 'btn-primary');
-    document.getElementById('calendarViewBtn').classList.remove('btn-outline-primary');
+    document.getElementById('listViewBtn').classList.remove('active', 'btn-light');
+    document.getElementById('listViewBtn').classList.add('btn-outline-light');
+    document.getElementById('calendarViewBtn').classList.add('active', 'btn-light');
+    document.getElementById('calendarViewBtn').classList.remove('btn-outline-light');
 
     // Initialize calendar if not already done
     if (!calendar) {
@@ -509,5 +1001,101 @@ function deleteTardiness(tardinessId) {
         alert('Failed to delete tardiness record');
     });
 }
+
+// PTO Form handling
+document.addEventListener('DOMContentLoaded', function() {
+    // Partial day toggle
+    const partialDayCheckbox = document.getElementById('is_partial_day');
+    const partialDayFields = document.querySelectorAll('.partial-day-fields');
+
+    if (partialDayCheckbox) {
+        partialDayCheckbox.addEventListener('change', function() {
+            partialDayFields.forEach(field => {
+                field.style.display = this.checked ? 'block' : 'none';
+            });
+        });
+    }
+
+    // Call-out toggle - auto-select Sick Leave when checked
+    const callOutCheckbox = document.getElementById('is_call_out');
+    const ptoTypeSelect = document.getElementById('pto_type');
+
+    if (callOutCheckbox && ptoTypeSelect) {
+        callOutCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                ptoTypeSelect.value = 'Sick Leave';
+                // Set start and end date to today for call-outs
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('pto_start_date').value = today;
+                document.getElementById('pto_end_date').value = today;
+            }
+        });
+    }
+
+    // PTO Form submission
+    const addPTOForm = document.getElementById('addPTOForm');
+    if (addPTOForm) {
+        addPTOForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = {
+                start_date: document.getElementById('pto_start_date').value,
+                end_date: document.getElementById('pto_end_date').value,
+                pto_type: document.getElementById('pto_type').value,
+                is_partial_day: document.getElementById('is_partial_day').checked,
+                start_time: document.getElementById('pto_start_time').value,
+                end_time: document.getElementById('pto_end_time').value,
+                is_call_out: document.getElementById('is_call_out').checked,
+                reason: document.getElementById('pto_reason').value
+            };
+
+            // Validation
+            if (!formData.start_date || !formData.end_date || !formData.pto_type) {
+                showFeedback('Please fill in all required fields', 'danger');
+                return;
+            }
+
+            // Call-out validation
+            if (formData.is_call_out && formData.pto_type !== 'Sick Leave') {
+                showFeedback('Call-out requests must use Sick Leave type', 'danger');
+                return;
+            }
+
+            // Submit button loading state
+            const submitBtn = addPTOForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
+
+            fetch(`/api/employee/${employeeId}/add-pto`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showFeedback(data.message || 'PTO request submitted successfully!', 'success');
+                    // Close modal and reload page to show new request
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addPTOModal'));
+                    modal.hide();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showFeedback(data.error || 'Failed to submit PTO request', 'danger');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showFeedback('Failed to submit PTO request', 'danger');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+});
 </script>
 {% endblock %}

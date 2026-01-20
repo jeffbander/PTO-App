@@ -830,11 +830,13 @@ def register_routes(app):
         # Add tardiness events to the calendar
         tardiness_records = TardinessRecord.query.filter_by(member_id=employee_id).all()
         for record in tardiness_records:
+            # Convert date to string for JSON serialization
+            record_date_str = str(record.date) if record.date else None
             event = {
                 'id': f'tardiness_{record.id}',
                 'title': f'Late ({record.minutes_late} min)',
-                'start': record.date,
-                'end': record.date,
+                'start': record_date_str,
+                'end': record_date_str,
                 'color': '#fd7e14',  # Orange for tardiness
                 'allDay': True,
                 'extendedProps': {
@@ -846,8 +848,8 @@ def register_routes(app):
                     'is_tardiness': True,
                     'reason': record.reason or 'Not specified',
                     'submitted': record.created_at.strftime('%m/%d/%Y') if record.created_at else 'N/A',
-                    'start_date': record.date,
-                    'end_date': record.date
+                    'start_date': record_date_str,
+                    'end_date': record_date_str
                 }
             }
             events.append(event)
@@ -932,6 +934,159 @@ def register_routes(app):
                 flash(f'Error updating employee: {str(e)}', 'error')
 
         return render_template('edit_employee.html', employee=employee)
+
+    @app.route('/api/positions-list')
+    @roles_required('admin', 'clinical', 'superadmin')
+    def api_positions_list():
+        """API endpoint to get all positions with IDs for dropdowns"""
+        positions = Position.query.order_by(Position.team, Position.name).all()
+        return jsonify({
+            'positions': [{'id': p.id, 'name': p.name, 'team': p.team} for p in positions]
+        })
+
+    @app.route('/api/employee/<int:employee_id>/update', methods=['POST'])
+    @roles_required('admin', 'clinical', 'superadmin')
+    def update_employee_field(employee_id):
+        """API endpoint to update a single employee field inline"""
+        employee = TeamMember.query.get_or_404(employee_id)
+        data = request.get_json()
+
+        field = data.get('field')
+        value = data.get('value')
+
+        if not field:
+            return jsonify({'success': False, 'error': 'Field name is required'}), 400
+
+        try:
+            display_value = value
+            extra_data = {}
+
+            if field == 'name':
+                employee.name = value
+                display_value = value
+            elif field == 'email':
+                employee.email = value
+                display_value = value
+            elif field == 'phone':
+                employee.phone = value if value else None
+                display_value = value if value else 'Not provided'
+            elif field == 'pin':
+                if value and len(value) != 4:
+                    return jsonify({'success': False, 'error': 'PIN must be exactly 4 digits'}), 400
+                if value and not value.isdigit():
+                    return jsonify({'success': False, 'error': 'PIN must contain only digits'}), 400
+                employee.pin = value if value else None
+                display_value = '****' if value else 'Not set'
+            elif field == 'position_id':
+                position = Position.query.get(int(value))
+                if not position:
+                    return jsonify({'success': False, 'error': 'Invalid position'}), 400
+                employee.position_id = position.id
+                display_value = position.name
+                extra_data['team'] = position.team
+            elif field == 'pto_balance_hours':
+                employee.pto_balance_hours = float(value)
+                display_value = str(float(value))
+            elif field == 'sick_balance_hours':
+                employee.sick_balance_hours = float(value)
+                display_value = str(float(value))
+            elif field == 'pto_refresh_date':
+                if value:
+                    from datetime import datetime
+                    employee.pto_refresh_date = datetime.strptime(value, '%Y-%m-%d').date()
+                    display_value = employee.pto_refresh_date.strftime('%m/%d/%Y')
+                else:
+                    employee.pto_refresh_date = None
+                    display_value = 'Not set'
+            else:
+                return jsonify({'success': False, 'error': f'Unknown field: {field}'}), 400
+
+            db.session.commit()
+
+            response = {'success': True, 'display_value': display_value}
+            response.update(extra_data)
+            return jsonify(response)
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/employee/<int:employee_id>/add-pto', methods=['POST'])
+    @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
+    def add_pto_for_employee(employee_id):
+        """API endpoint to create a PTO request on behalf of an employee"""
+        employee = TeamMember.query.get_or_404(employee_id)
+        data = request.get_json()
+
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        pto_type = data.get('pto_type')
+        is_partial_day = data.get('is_partial_day', False)
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        is_call_out = data.get('is_call_out', False)
+        reason = data.get('reason', '')
+
+        # Validation
+        if not start_date or not end_date or not pto_type:
+            return jsonify({'success': False, 'error': 'Start date, end date, and PTO type are required'}), 400
+
+        # Call-out validation
+        if is_call_out and pto_type != 'Sick Leave':
+            return jsonify({'success': False, 'error': 'Call-out requests must use Sick Leave type'}), 400
+
+        try:
+            # Determine manager team from employee's position
+            manager_team = employee.team or 'admin'
+
+            # Create PTO request
+            # Call-outs are auto-approved, regular PTO is pending
+            pto_request = PTORequest(
+                member_id=employee.id,
+                start_date=start_date,
+                end_date=end_date,
+                pto_type=pto_type,
+                reason=reason,
+                manager_team=manager_team,
+                is_call_out=is_call_out,
+                is_partial_day=is_partial_day,
+                start_time=start_time if is_partial_day else None,
+                end_time=end_time if is_partial_day else None,
+                status='approved' if is_call_out else 'pending'
+            )
+
+            db.session.add(pto_request)
+            db.session.commit()
+
+            # If call-out, automatically deduct from sick balance
+            if is_call_out:
+                hours_to_deduct = pto_request.duration_hours
+                current_sick_balance = float(employee.sick_balance_hours or 0)
+                new_sick_balance = max(0, current_sick_balance - hours_to_deduct)
+                employee.sick_balance_hours = new_sick_balance
+                db.session.commit()
+
+            # Send email notification
+            try:
+                email_service.send_submission_email(pto_request)
+            except Exception as e:
+                print(f"Failed to send submission email: {str(e)}")
+
+            # Different success message for call-out vs regular PTO
+            if is_call_out:
+                message = f'Call-out submitted and auto-approved for {employee.name}. Sick time deducted: {pto_request.duration_hours} hrs'
+            else:
+                message = f'PTO request submitted for {employee.name}. Request ID: #{pto_request.id}'
+
+            return jsonify({
+                'success': True,
+                'message': message,
+                'request_id': pto_request.id
+            })
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/employee/delete/<int:employee_id>', methods=['POST'])
     @roles_required('admin', 'clinical', 'superadmin')
