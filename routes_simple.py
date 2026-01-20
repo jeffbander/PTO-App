@@ -724,63 +724,69 @@ def register_routes(app):
     def employee_detail(employee_id):
         """View employee details"""
         from datetime import datetime, timedelta
+        import traceback
 
-        employee = TeamMember.query.get_or_404(employee_id)
+        try:
+            employee = TeamMember.query.get_or_404(employee_id)
 
-        # Get all PTO requests for this employee
-        pto_requests = PTORequest.query.filter_by(member_id=employee_id).order_by(PTORequest.created_at.desc()).all()
+            # Get all PTO requests for this employee
+            pto_requests = PTORequest.query.filter_by(member_id=employee_id).order_by(PTORequest.created_at.desc()).all()
 
-        # Calculate statistics
-        total_requests = len(pto_requests)
-        approved_requests = len([r for r in pto_requests if r.status == 'approved'])
-        pending_requests = len([r for r in pto_requests if r.status == 'pending'])
-        denied_requests = len([r for r in pto_requests if r.status == 'denied'])
+            # Calculate statistics
+            total_requests = len(pto_requests)
+            approved_requests = len([r for r in pto_requests if r.status == 'approved'])
+            pending_requests = len([r for r in pto_requests if r.status == 'pending'])
+            denied_requests = len([r for r in pto_requests if r.status == 'denied'])
 
-        # Calculate call-out statistics
-        total_callouts = len([r for r in pto_requests if r.is_call_out])
-        approved_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'approved'])
-        pending_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'pending'])
+            # Calculate call-out statistics
+            total_callouts = len([r for r in pto_requests if r.is_call_out])
+            approved_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'approved'])
+            pending_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'pending'])
 
-        # Calculate PTO days used (approved non-call-out requests)
-        total_pto_used = sum(r.duration_days for r in pto_requests
-                            if r.status == 'approved' and not r.is_call_out)
+            # Calculate PTO days used (approved non-call-out requests)
+            total_pto_used = sum(r.duration_days for r in pto_requests
+                                if r.status == 'approved' and not r.is_call_out)
 
-        # Calculate sick days used (approved call-outs)
-        total_callouts_used = sum(r.duration_days for r in pto_requests
-                                 if r.status == 'approved' and r.is_call_out)
+            # Calculate sick days used (approved call-outs)
+            total_callouts_used = sum(r.duration_days for r in pto_requests
+                                     if r.status == 'approved' and r.is_call_out)
 
-        # Calculate days until PTO refresh
-        if employee.pto_refresh_date:
-            today = datetime.now().date()
-            refresh_date = employee.pto_refresh_date
-            if refresh_date < today:
-                # If refresh date has passed, calculate next year's refresh
-                refresh_date = datetime(today.year + 1, refresh_date.month, refresh_date.day).date()
-            days_until_refresh = (refresh_date - today).days
-        else:
-            days_until_refresh = None
+            # Calculate days until PTO refresh
+            if employee.pto_refresh_date:
+                today = datetime.now().date()
+                refresh_date = employee.pto_refresh_date
+                if refresh_date < today:
+                    # If refresh date has passed, calculate next year's refresh
+                    refresh_date = datetime(today.year + 1, refresh_date.month, refresh_date.day).date()
+                days_until_refresh = (refresh_date - today).days
+            else:
+                days_until_refresh = None
 
-        # Get tardiness records for this employee
-        tardiness_records = TardinessRecord.query.filter_by(member_id=employee_id).order_by(TardinessRecord.date.desc()).all()
-        total_tardiness = len(tardiness_records)
-        total_tardiness_minutes = sum(r.minutes_late for r in tardiness_records)
+            # Get tardiness records for this employee
+            tardiness_records = TardinessRecord.query.filter_by(member_id=employee_id).order_by(TardinessRecord.date.desc()).all()
+            total_tardiness = len(tardiness_records)
+            total_tardiness_minutes = sum(r.minutes_late for r in tardiness_records)
 
-        stats = {
-            'total_requests': total_requests,
-            'approved_requests': approved_requests,
-            'pending_requests': pending_requests,
-            'denied_requests': denied_requests,
-            'total_callouts': total_callouts,
-            'approved_callouts': approved_callouts,
-            'pending_callouts': pending_callouts,
-            'total_pto_used': round(total_pto_used, 1),
-            'total_callouts_used': round(total_callouts_used, 1),
-            'days_until_refresh': days_until_refresh,
-            'total_tardiness': total_tardiness,
-            'total_tardiness_minutes': total_tardiness_minutes
-        }
+            stats = {
+                'total_requests': total_requests,
+                'approved_requests': approved_requests,
+                'pending_requests': pending_requests,
+                'denied_requests': denied_requests,
+                'total_callouts': total_callouts,
+                'approved_callouts': approved_callouts,
+                'pending_callouts': pending_callouts,
+                'total_pto_used': round(total_pto_used, 1),
+                'total_callouts_used': round(total_callouts_used, 1),
+                'days_until_refresh': days_until_refresh,
+                'total_tardiness': total_tardiness,
+                'total_tardiness_minutes': total_tardiness_minutes
+            }
 
-        return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats, tardiness_records=tardiness_records)
+            return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats, tardiness_records=tardiness_records)
+        except Exception as e:
+            print(f"ERROR in employee_detail for ID {employee_id}: {str(e)}")
+            traceback.print_exc()
+            return f"Error loading employee details: {str(e)}", 500
 
     @app.route('/api/employee/<int:employee_id>/pto-events')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
