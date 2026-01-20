@@ -26,9 +26,9 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-primary text-white py-2 px-3">
                     <div class="d-flex align-items-center gap-2">
-                        <div class="avatar-sm">{{ employee.name.split()[0][0] }}{{ employee.name.split()[-1][0] if employee.name.split()|length > 1 else '' }}</div>
+                        <div class="avatar-sm">{% if employee.name %}{{ employee.name.split()[0][0] if employee.name.split() else '?' }}{{ employee.name.split()[-1][0] if employee.name.split()|length > 1 else '' }}{% else %}?{% endif %}</div>
                         <span class="fw-semibold" style="font-size: 0.95rem;">{{ employee.name }}</span>
-                        {% if '[INACTIVE]' in employee.name %}
+                        {% if employee.name and '[INACTIVE]' in employee.name %}
                             <span class="badge bg-secondary ms-auto" style="font-size: 0.65rem;">Inactive</span>
                         {% else %}
                             <span class="badge bg-success ms-auto" style="font-size: 0.65rem;">Active</span>
@@ -64,7 +64,7 @@
                         <!-- Editable Position (dropdown) -->
                         <div class="editable-field d-flex align-items-center gap-2 text-muted" data-field="position_id" data-current-value="{{ employee.position_id }}">
                             <i class="fas fa-briefcase" style="font-size: 0.75rem;"></i>
-                            <span class="field-value">{{ employee.position }}</span>
+                            <span class="field-value">{{ employee.position.name if employee.position else 'Not assigned' }}</span>
                             {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
                             <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
                             {% endif %}
@@ -72,7 +72,7 @@
                         <!-- Team (derived from position) -->
                         <div class="d-flex align-items-center gap-2 text-muted">
                             <i class="fas fa-users" style="font-size: 0.75rem;"></i>
-                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.65rem;" id="team-badge">{{ employee.team|title }}</span>
+                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.65rem;" id="team-badge">{{ (employee.team|title) if employee.team else 'Unknown' }}</span>
                         </div>
                         <!-- Editable PIN -->
                         <div class="editable-field d-flex align-items-center gap-2 text-muted" data-field="pin">
@@ -85,8 +85,8 @@
                     </div>
                     {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
                     <div class="d-flex gap-2 pt-2 mt-2 border-top">
-                        {% if '[INACTIVE]' not in employee.name %}
-                        <button class="btn btn-sm btn-outline-danger" style="font-size: 0.75rem; height: 28px; line-height: 1.5;" onclick="confirmDelete({{ employee.id }}, '{{ employee.name }}')">
+                        {% if not employee.name or '[INACTIVE]' not in employee.name %}
+                        <button class="btn btn-sm btn-outline-danger" style="font-size: 0.75rem; height: 28px; line-height: 1.5;" onclick="confirmDelete({{ employee.id }}, '{{ employee.name|default('Unknown', true) }}')">
                             <i class="fas fa-trash me-1" style="font-size: 0.65rem;"></i>Delete
                         </button>
                         {% endif %}
