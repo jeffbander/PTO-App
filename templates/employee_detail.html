@@ -110,7 +110,7 @@
                         <button class="btn btn-link btn-sm p-0 ms-1 edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
                         {% endif %}
                     </div>
-                    {% set pto_pct = (((employee.pto_balance_hours or 0)|float / employee.starting_pto_hours * 100)|int) if employee.starting_pto_hours and employee.starting_pto_hours > 0 else 0 %}
+                    {% set pto_pct = (((employee.pto_balance_hours or 0)|float / (employee.starting_pto_hours|float) * 100)|int) if employee.starting_pto_hours and employee.starting_pto_hours > 0 else 0 %}
                     <div class="progress mb-2" style="height: 6px;">
                         <div class="progress-bar bg-success" role="progressbar" style="width: {{ pto_pct }}%" id="pto-progress-bar"></div>
                     </div>
@@ -148,7 +148,7 @@
                         <button class="btn btn-link btn-sm p-0 ms-1 edit-btn" onclick="startEdit(this)" style="font-size: 0.65rem;"><i class="fas fa-pencil-alt text-muted"></i></button>
                         {% endif %}
                     </div>
-                    {% set sick_pct = (((employee.sick_balance_hours or 0)|float / employee.starting_sick_hours * 100)|int) if employee.starting_sick_hours and employee.starting_sick_hours > 0 else 0 %}
+                    {% set sick_pct = (((employee.sick_balance_hours or 0)|float / (employee.starting_sick_hours|float) * 100)|int) if employee.starting_sick_hours and employee.starting_sick_hours > 0 else 0 %}
                     <div class="progress mb-2" style="height: 6px;">
                         <div class="progress-bar bg-success" role="progressbar" style="width: {{ sick_pct }}%" id="sick-progress-bar"></div>
                     </div>
