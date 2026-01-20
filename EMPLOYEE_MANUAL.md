@@ -7,11 +7,10 @@
 
 ## What is this app?
 
-The PTO Tracker helps you ask for time off from work. PTO stands for "Paid Time Off." This app lets you:
+The PTO Tracker helps you manage your time off from work. This app lets you:
 
-- Ask for vacation days
-- Ask for sick days
-- Tell your manager when you need to miss work
+- Request vacation and personal days
+- Submit and track call-outs (day-of)
 
 ---
 
@@ -24,14 +23,19 @@ Open your web browser and go to: **https://pto-app-eight.vercel.app**
 **Step 2: Pick your team**
 
 Click the dropdown menu and pick your team:
-- **Admin** - if you work at the front desk or do office work
-- **Clinical** - if you are a nurse, doctor, or medical worker
+- **Admin** - if you are a Secretary II
+- **Clinical** - if you are a nurse, tech, or MOA
 
 **Step 3: Pick your job title**
 
-Click the next dropdown and pick your job. For example:
-- Front Desk/Admin
-- CT Desk
+Click the next dropdown and pick your job:
+
+**Admin positions:**
+- Secretary II
+- Leadership
+- Other
+
+**Clinical positions:**
 - APP (Advanced Practice Provider)
 - CVI RNs (Nurses)
 - CVI MOAs (Medical Office Assistants)
@@ -49,10 +53,10 @@ Find your name in the list and click on it.
 
 **Step 6: Pick the type of time off**
 
-Choose why you need time off:
-- **Vacation** - for planned trips or personal time
-- **Sick Leave** - when you are sick
-- **Personal** - for personal matters
+Choose your type of time off:
+- Vacation
+- Sick
+- Personal
 
 **Step 7: Add a reason (optional)**
 

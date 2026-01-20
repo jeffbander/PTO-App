@@ -62,38 +62,44 @@
                     </div>
 
                     <!-- PTO Balance -->
+                    <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-calendar text-primary me-2"></i>PTO Balance</h6>
                     <div class="row mb-3">
                         <div class="col-md-6">
+                            <label for="starting_pto" class="form-label">
+                                Starting Balance (Hours)
+                            </label>
+                            <input type="number" step="0.1" class="form-control" id="starting_pto" name="starting_pto"
+                                   value="{{ employee.starting_pto_hours|default(60, true) }}" min="0" max="1000">
+                            <div class="form-text">Annual PTO allocation</div>
+                        </div>
+                        <div class="col-md-6">
                             <label for="pto_balance" class="form-label">
-                                <i class="fas fa-calendar"></i> PTO Balance (Hours) <span class="text-danger">*</span>
+                                Remaining Balance (Hours) <span class="text-danger">*</span>
                             </label>
                             <input type="number" step="0.1" class="form-control" id="pto_balance" name="pto_balance"
                                    value="{{ employee.pto_balance_hours }}" min="0" max="1000" required>
-                            <div class="form-text">Default: 60 hours (8 days). 7.5 hours = 1 workday</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-text">
-                                <i class="fas fa-info-circle"></i> PTO Balance (Days)<br>
-                                <strong class="text-primary">{{ "%.1f"|format(employee.pto_balance_days) }} days</strong>
-                            </div>
+                            <div class="form-text">Current remaining PTO</div>
                         </div>
                     </div>
 
                     <!-- Sick Balance -->
+                    <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-medkit text-danger me-2"></i>Sick Time Balance</h6>
                     <div class="row mb-3">
                         <div class="col-md-6">
+                            <label for="starting_sick" class="form-label">
+                                Starting Balance (Hours)
+                            </label>
+                            <input type="number" step="0.1" class="form-control" id="starting_sick" name="starting_sick"
+                                   value="{{ employee.starting_sick_hours|default(60, true) }}" min="0" max="1000">
+                            <div class="form-text">Annual sick time allocation</div>
+                        </div>
+                        <div class="col-md-6">
                             <label for="sick_balance" class="form-label">
-                                <i class="fas fa-medkit"></i> Sick Time Balance (Hours) <span class="text-danger">*</span>
+                                Remaining Balance (Hours) <span class="text-danger">*</span>
                             </label>
                             <input type="number" step="0.1" class="form-control" id="sick_balance" name="sick_balance"
                                    value="{{ employee.sick_balance_hours }}" min="0" max="1000" required>
-                            <div class="form-text">Default: 60 hours (8 days). 7.5 hours = 1 workday</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-text">
-                                <i class="fas fa-info-circle"></i> Sick Time Balance (Days)<br>
-                                <strong class="text-danger">{{ "%.1f"|format(employee.sick_balance_days) }} days</strong>
-                            </div>
+                            <div class="form-text">Current remaining sick time</div>
                         </div>
                     </div>
 

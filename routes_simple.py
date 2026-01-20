@@ -119,6 +119,15 @@ def register_routes(app):
             ~TeamMember.name.contains('[INACTIVE]')
         ).order_by(TeamMember.name).all()
 
+        # Build stats dictionary for dashboard
+        stats = {
+            'pending': len(pending_requests),
+            'in_progress': len(in_progress_requests),
+            'approved': len(approved_requests),
+            'total': len(pending_requests) + len(in_progress_requests) + len(approved_requests),
+            'team_members': len(team_employees)
+        }
+
         return render_template('dashboard_admin.html',
                                requests=pending_requests,
                                approved_requests=approved_requests,
@@ -126,6 +135,7 @@ def register_routes(app):
                                pending_employees=pending_employees,
                                currently_on_pto=currently_on_pto,
                                team_employees=team_employees,
+                               stats=stats,
                                now=get_eastern_time)
 
     @app.route('/dashboard/clinical')
@@ -161,6 +171,15 @@ def register_routes(app):
             ~TeamMember.name.contains('[INACTIVE]')
         ).order_by(TeamMember.name).all()
 
+        # Build stats dictionary for dashboard
+        stats = {
+            'pending': len(pending_requests),
+            'in_progress': len(in_progress_requests),
+            'approved': len(approved_requests),
+            'total': len(pending_requests) + len(in_progress_requests) + len(approved_requests),
+            'team_members': len(team_employees)
+        }
+
         return render_template('dashboard_clinical.html',
                                requests=pending_requests,
                                approved_requests=approved_requests,
@@ -168,6 +187,7 @@ def register_routes(app):
                                pending_employees=pending_employees,
                                currently_on_pto=currently_on_pto,
                                team_employees=team_employees,
+                               stats=stats,
                                now=get_eastern_time)
 
     @app.route('/dashboard/superadmin')

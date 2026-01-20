@@ -143,7 +143,7 @@ Click on any item to see more details.
 ## Different Manager Roles
 
 ### Admin Manager
-- Manages Front Desk/Admin and CT Desk staff
+- Manages Secretary II, Leadership, and Other admin staff
 - Sees admin team requests and employees
 
 ### Clinical Manager

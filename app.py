@@ -27,6 +27,65 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 # Initialize the app with the extension
 db.init_app(app)
 
+def run_migrations():
+    """Add new columns to existing tables if they don't exist"""
+    from sqlalchemy import text, inspect
+
+    # List of migrations: (table, column, type, default)
+    migrations = [
+        ('users', 'starting_pto_hours', 'NUMERIC(5,2)', '60.0'),
+        ('users', 'starting_sick_hours', 'NUMERIC(5,2)', '60.0'),
+    ]
+
+    try:
+        inspector = inspect(db.engine)
+        existing_columns = {col['name'] for col in inspector.get_columns('users')}
+    except Exception as e:
+        print(f'Could not inspect database: {e}')
+        existing_columns = set()
+
+    for table, column, col_type, default in migrations:
+        if column in existing_columns:
+            print(f'Column {column} already exists in {table}')
+            continue
+
+        try:
+            db.session.execute(text(
+                f'ALTER TABLE {table} ADD COLUMN {column} {col_type} DEFAULT {default}'
+            ))
+            db.session.commit()
+            print(f'Added column {column} to {table}')
+        except Exception as e:
+            db.session.rollback()
+            print(f'Could not add column {column} to {table}: {e}')
+
+def migrate_admin_positions():
+    """Migrate old admin positions (Front Desk, CT Desk, etc.) to Secretary II"""
+    # Get Secretary II position
+    secretary_pos = Position.query.filter_by(name='Secretary II', team='admin').first()
+    if not secretary_pos:
+        print('Secretary II position not found, skipping migration')
+        return
+
+    # Old admin positions to migrate
+    old_positions = ['Front Desk/Admin', 'CT Desk', 'Front Desk Coordinator', 'Admin Assistant']
+
+    for old_name in old_positions:
+        old_pos = Position.query.filter_by(name=old_name).first()
+        if old_pos:
+            # Update all team members with this position to Secretary II
+            members_updated = TeamMember.query.filter_by(position_id=old_pos.id).update(
+                {'position_id': secretary_pos.id}
+            )
+            if members_updated > 0:
+                print(f'Migrated {members_updated} employees from {old_name} to Secretary II')
+
+            # Delete the old position
+            db.session.delete(old_pos)
+            print(f'Deleted old position: {old_name}')
+
+    db.session.commit()
+
 def initialize_database():
     with app.app_context():
         # Create tables if they don't exist (but don't drop existing data)
@@ -34,14 +93,18 @@ def initialize_database():
         # db.drop_all()  # COMMENTED OUT - Enable ONLY to update schema during development
         db.create_all()
 
+        # Run migrations to add new columns to existing tables
+        run_migrations()
+
         # Initialize positions if they don't exist
         positions_to_create = [
             {'name': 'APP', 'team': 'clinical'},
             {'name': 'CVI RNs', 'team': 'clinical'},
             {'name': 'CVI MOAs', 'team': 'clinical'},
             {'name': 'CVI Echo Techs', 'team': 'clinical'},
-            {'name': 'Front Desk/Admin', 'team': 'admin'},
-            {'name': 'CT Desk', 'team': 'admin'},
+            {'name': 'Secretary II', 'team': 'admin'},
+            {'name': 'Leadership', 'team': 'admin'},
+            {'name': 'Other', 'team': 'admin'},
         ]
 
         for pos_data in positions_to_create:
@@ -50,6 +113,9 @@ def initialize_database():
                 new_pos = Position(name=pos_data['name'], team=pos_data['team'])
                 db.session.add(new_pos)
         db.session.commit()
+
+        # Migrate old admin positions to Secretary II
+        migrate_admin_positions()
 
         # Initialize default managers in Manager table
         from werkzeug.security import generate_password_hash
