@@ -115,8 +115,8 @@
         </div>
 
         <!-- Right side: 2x2 grid of compact cards -->
-        <div class="col-lg-8">
-            <div class="row g-2">
+        <div class="col-lg-8 d-flex">
+            <div class="row g-2 flex-grow-1">
                 <!-- PTO Balance (compact) -->
                 <div class="col-6">
                     <div class="card card-compact border-0 shadow-sm h-100">
@@ -155,7 +155,7 @@
                 <!-- Sick Balance (compact) -->
                 <div class="col-6">
                     <div class="card card-compact border-0 shadow-sm h-100">
-                        <div class="card-header card-header-teal py-2 px-3">
+                        <div class="card-header card-header-cyan py-2 px-3">
                             <h6 class="mb-0 fw-semibold" style="font-size: 0.875rem;">Sick Time Balance</h6>
                         </div>
                         <div class="card-body">
@@ -201,7 +201,7 @@
                 <!-- Call-Outs (compact) -->
                 <div class="col-6">
                     <div class="card card-compact border-0 shadow-sm h-100">
-                        <div class="card-header card-header-teal py-2 px-3">
+                        <div class="card-header card-header-indigo py-2 px-3">
                             <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
                                 <i class="fas fa-exclamation-triangle" style="font-size: 0.8125rem;"></i>
                                 Call-Outs
@@ -240,7 +240,7 @@
                 <!-- Tardiness (compact) -->
                 <div class="col-6">
                     <div class="card card-compact border-0 shadow-sm h-100">
-                        <div class="card-header card-header-teal py-2 px-3">
+                        <div class="card-header card-header-slate py-2 px-3">
                             <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
                                 <i class="fas fa-clock" style="font-size: 0.8125rem;"></i>
                                 Tardiness
@@ -300,10 +300,10 @@
 
     <!-- ROW 2: PTO Statistics + Request History -->
     <div class="row g-3 mt-1">
-        <!-- PTO Statistics - 3 cols -->
-        <div class="col-lg-3">
+        <!-- PTO Statistics - 4 cols -->
+        <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header card-header-teal py-2 px-3">
+                <div class="card-header card-header-teal-dark py-2 px-3">
                     <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
                         <i class="fas fa-calendar-check" style="font-size: 0.8125rem;"></i>
                         PTO Statistics
@@ -330,8 +330,8 @@
             </div>
         </div>
 
-        <!-- Request History - 9 cols -->
-        <div class="col-lg-9">
+        <!-- Request History - 8 cols -->
+        <div class="col-lg-8">
             <div class="card border-0 shadow-sm">
                 <div class="card-header card-header-blue py-2 px-3 d-flex justify-content-between align-items-center">
                     <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
@@ -622,6 +622,10 @@
     /* 3. Consistent card header colors via CSS variables */
     .card-header-blue { background-color: var(--bs-primary, #0d6efd); color: white; }
     .card-header-teal { background-color: #0d9488; color: white; }
+    .card-header-teal-dark { background-color: #0f766e; color: white; }
+    .card-header-cyan { background-color: #0891b2; color: white; }
+    .card-header-indigo { background-color: #4f46e5; color: white; }
+    .card-header-slate { background-color: #475569; color: white; }
 
     /* Compact card styling for balance/stats cards */
     .card-compact .card-body { padding: 0.75rem; }
