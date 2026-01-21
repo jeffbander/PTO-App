@@ -19,9 +19,9 @@
         <h1 class="h5 fw-bold mb-0">Employee Details</h1>
     </div>
 
-    <!-- ROW 1: Employee Info + Balance Cards -->
+    <!-- ROW 1: Employee Info + 2x2 Grid -->
     <div class="row g-3">
-        <!-- Employee Info - 4 cols -->
+        <!-- Employee Info - spans 2 rows -->
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-primary text-white py-2 px-3">
@@ -114,95 +114,196 @@
             </div>
         </div>
 
-        <!-- PTO Balance - 4 cols -->
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header card-header-amber py-2 px-3">
-                    <h6 class="mb-0 fw-semibold" style="font-size: 0.875rem;">PTO Balance</h6>
-                </div>
-                <div class="card-body">
-                    <div class="text-center mb-3 editable-field" data-field="pto_balance_hours">
-                        <span class="text-success fw-bold field-value" style="font-size: 2rem;" id="pto-balance-display">{{ employee.pto_balance_hours or 0 }}</span>
-                        <span class="text-muted ms-1" style="font-size: 0.875rem;">hrs remaining</span>
-                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                        <button class="btn btn-link btn-sm p-0 ms-2 edit-btn" onclick="startEdit(this)"><i class="fas fa-pencil-alt"></i><span class="edit-label">Edit</span></button>
-                        {% endif %}
+        <!-- Right side: 2x2 grid of compact cards -->
+        <div class="col-lg-8">
+            <div class="row g-2">
+                <!-- PTO Balance (compact) -->
+                <div class="col-6">
+                    <div class="card card-compact border-0 shadow-sm h-100">
+                        <div class="card-header card-header-teal py-2 px-3">
+                            <h6 class="mb-0 fw-semibold" style="font-size: 0.875rem;">PTO Balance</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-2 editable-field" data-field="pto_balance_hours">
+                                <span class="text-success fw-bold field-value balance-number" id="pto-balance-display">{{ employee.pto_balance_hours or 0 }}</span>
+                                <span class="text-muted ms-1" style="font-size: 0.8125rem;">hrs remaining</span>
+                                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                                <button class="btn btn-link btn-sm p-0 ms-2 edit-btn" onclick="startEdit(this)"><i class="fas fa-pencil-alt"></i><span class="edit-label">Edit</span></button>
+                                {% endif %}
+                            </div>
+                            {% set pto_pct = (((employee.pto_balance_hours or 0)|float / (employee.starting_pto_hours|float) * 100)|int) if employee.starting_pto_hours and employee.starting_pto_hours > 0 else 0 %}
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ pto_pct }}%" id="pto-progress-bar"></div>
+                            </div>
+                            <table class="w-100" style="font-size: 0.8125rem;">
+                                <tbody>
+                                    <tr class="border-bottom">
+                                        <td class="py-1 text-muted">Starting</td>
+                                        <td class="py-1 text-end fw-medium">{{ employee.starting_pto_hours }} hrs</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 text-muted">Used</td>
+                                        <td class="py-1 text-end fw-medium">{{ employee.pto_used_hours or 0 }} hrs</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <span class="d-none" id="pto-remaining">{{ employee.pto_balance_hours or 0 }} hrs</span>
+                        </div>
                     </div>
-                    {% set pto_pct = (((employee.pto_balance_hours or 0)|float / (employee.starting_pto_hours|float) * 100)|int) if employee.starting_pto_hours and employee.starting_pto_hours > 0 else 0 %}
-                    <div class="progress mb-3">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ pto_pct }}%" id="pto-progress-bar"></div>
-                    </div>
-                    <table class="w-100" style="font-size: 0.8125rem;">
-                        <tbody>
-                            <tr class="border-bottom">
-                                <td class="py-2 text-muted">Starting</td>
-                                <td class="py-2 text-end fw-medium">{{ employee.starting_pto_hours }} hrs</td>
-                            </tr>
-                            <tr>
-                                <td class="py-2 text-muted">Used</td>
-                                <td class="py-2 text-end fw-medium">{{ employee.pto_used_hours or 0 }} hrs</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <span class="d-none" id="pto-remaining">{{ employee.pto_balance_hours or 0 }} hrs</span>
                 </div>
-            </div>
-        </div>
 
-        <!-- Sick Balance - 4 cols -->
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header card-header-amber py-2 px-3">
-                    <h6 class="mb-0 fw-semibold" style="font-size: 0.875rem;">Sick Time Balance</h6>
+                <!-- Sick Balance (compact) -->
+                <div class="col-6">
+                    <div class="card card-compact border-0 shadow-sm h-100">
+                        <div class="card-header card-header-teal py-2 px-3">
+                            <h6 class="mb-0 fw-semibold" style="font-size: 0.875rem;">Sick Time Balance</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-2 editable-field" data-field="sick_balance_hours">
+                                <span class="text-success fw-bold field-value balance-number" id="sick-balance-display">{{ employee.sick_balance_hours or 0 }}</span>
+                                <span class="text-muted ms-1" style="font-size: 0.8125rem;">hrs remaining</span>
+                                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                                <button class="btn btn-link btn-sm p-0 ms-2 edit-btn" onclick="startEdit(this)"><i class="fas fa-pencil-alt"></i><span class="edit-label">Edit</span></button>
+                                {% endif %}
+                            </div>
+                            {% set sick_pct = (((employee.sick_balance_hours or 0)|float / (employee.starting_sick_hours|float) * 100)|int) if employee.starting_sick_hours and employee.starting_sick_hours > 0 else 0 %}
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ sick_pct }}%" id="sick-progress-bar"></div>
+                            </div>
+                            <table class="w-100" style="font-size: 0.8125rem;">
+                                <tbody>
+                                    <tr class="border-bottom">
+                                        <td class="py-1 text-muted">Starting</td>
+                                        <td class="py-1 text-end fw-medium">{{ employee.starting_sick_hours }} hrs</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 text-muted">Used</td>
+                                        <td class="py-1 text-end fw-medium">{{ employee.sick_used_hours or 0 }} hrs</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <span class="d-none" id="sick-remaining">{{ employee.sick_balance_hours or 0 }} hrs</span>
+                            <!-- Editable PTO Refresh Date -->
+                            <div class="mt-2 pt-2 border-top editable-field d-flex align-items-center" data-field="pto_refresh_date" style="font-size: 0.75rem;">
+                                <span class="text-muted">Refresh: </span>
+                                <span class="field-value ms-1">{{ employee.pto_refresh_date.strftime('%m/%d/%Y') if employee.pto_refresh_date else 'Not set' }}</span>
+                                {% if stats.days_until_refresh is not none %}
+                                <span class="text-muted ms-1">({{ stats.days_until_refresh }}d)</span>
+                                {% endif %}
+                                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                                <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)"><i class="fas fa-pencil-alt"></i><span class="edit-label">Edit</span></button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="text-center mb-3 editable-field" data-field="sick_balance_hours">
-                        <span class="text-success fw-bold field-value" style="font-size: 2rem;" id="sick-balance-display">{{ employee.sick_balance_hours or 0 }}</span>
-                        <span class="text-muted ms-1" style="font-size: 0.875rem;">hrs remaining</span>
-                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                        <button class="btn btn-link btn-sm p-0 ms-2 edit-btn" onclick="startEdit(this)"><i class="fas fa-pencil-alt"></i><span class="edit-label">Edit</span></button>
-                        {% endif %}
+
+                <!-- Call-Outs (compact) -->
+                <div class="col-6">
+                    <div class="card card-compact border-0 shadow-sm h-100">
+                        <div class="card-header card-header-teal py-2 px-3">
+                            <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 0.8125rem;"></i>
+                                Call-Outs
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <button class="btn btn-link w-100 p-0 d-flex align-items-center justify-content-between text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#calloutDetails" aria-expanded="false">
+                                <span class="fw-bold text-dark balance-number">{{ stats.total_callouts }}</span>
+                                <span class="text-muted d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                                    {% if stats.total_callouts > 0 %}View{% else %}None{% endif %}
+                                    <i class="fas fa-chevron-down" style="font-size: 0.6875rem; transition: transform 0.2s;"></i>
+                                </span>
+                            </button>
+                            {% if stats.total_callouts > 0 %}
+                            <div class="collapse mt-2 pt-2 border-top" id="calloutDetails">
+                                <div class="d-flex flex-column gap-1" style="font-size: 0.8125rem;">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Approved:</span>
+                                        <span class="text-success">{{ stats.approved_callouts }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Pending:</span>
+                                        <span style="color: #0d9488;">{{ stats.pending_callouts }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Sick Used:</span>
+                                        <span>{{ stats.total_callouts_used }}d</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
-                    {% set sick_pct = (((employee.sick_balance_hours or 0)|float / (employee.starting_sick_hours|float) * 100)|int) if employee.starting_sick_hours and employee.starting_sick_hours > 0 else 0 %}
-                    <div class="progress mb-3">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ sick_pct }}%" id="sick-progress-bar"></div>
-                    </div>
-                    <table class="w-100" style="font-size: 0.8125rem;">
-                        <tbody>
-                            <tr class="border-bottom">
-                                <td class="py-2 text-muted">Starting</td>
-                                <td class="py-2 text-end fw-medium">{{ employee.starting_sick_hours }} hrs</td>
-                            </tr>
-                            <tr>
-                                <td class="py-2 text-muted">Used</td>
-                                <td class="py-2 text-end fw-medium">{{ employee.sick_used_hours or 0 }} hrs</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <span class="d-none" id="sick-remaining">{{ employee.sick_balance_hours or 0 }} hrs</span>
-                    <!-- Editable PTO Refresh Date -->
-                    <div class="mt-3 pt-3 border-top editable-field d-flex align-items-center" data-field="pto_refresh_date" style="font-size: 0.8125rem;">
-                        <span class="text-muted">Refresh: </span>
-                        <span class="field-value ms-1">{{ employee.pto_refresh_date.strftime('%m/%d/%Y') if employee.pto_refresh_date else 'Not set' }}</span>
-                        {% if stats.days_until_refresh is not none %}
-                        <span class="text-muted ms-1">({{ stats.days_until_refresh }} days)</span>
-                        {% endif %}
-                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                        <button class="btn btn-link btn-sm p-0 ms-auto edit-btn" onclick="startEdit(this)"><i class="fas fa-pencil-alt"></i><span class="edit-label">Edit</span></button>
-                        {% endif %}
+                </div>
+
+                <!-- Tardiness (compact) -->
+                <div class="col-6">
+                    <div class="card card-compact border-0 shadow-sm h-100">
+                        <div class="card-header card-header-teal py-2 px-3">
+                            <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
+                                <i class="fas fa-clock" style="font-size: 0.8125rem;"></i>
+                                Tardiness
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.8125rem;">
+                                <span class="text-muted">Incidents:</span>
+                                <span class="fw-semibold">{{ stats.total_tardiness }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2" style="font-size: 0.8125rem;">
+                                <span class="text-muted">Minutes Late:</span>
+                                <span class="fw-semibold">{{ stats.total_tardiness_minutes }} min</span>
+                            </div>
+
+                            {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                            <!-- Add Tardiness Form (compact) -->
+                            <div class="border-top pt-2 mt-2">
+                                <form id="tardinessForm">
+                                    <div class="row g-1 mb-1">
+                                        <div class="col-6">
+                                            <input type="date" class="form-control form-control-sm" id="tardiness_date" style="font-size: 0.75rem;" required>
+                                        </div>
+                                        <div class="col-6">
+                                            <input type="number" class="form-control form-control-sm" id="tardiness_minutes" placeholder="Min" min="1" style="font-size: 0.75rem;" required>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100" style="font-size: 0.75rem;">
+                                        <i class="fas fa-plus me-1" style="font-size: 0.625rem;"></i>Add
+                                    </button>
+                                </form>
+                            </div>
+                            {% endif %}
+
+                            {% if tardiness_records %}
+                            <div class="border-top pt-2 mt-2">
+                                <div style="max-height: 60px; overflow-y: auto;">
+                                    {% for record in tardiness_records[:3] %}
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.75rem;">
+                                        <span class="text-muted">{{ record.date }} - {{ record.minutes_late }}min</span>
+                                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                                        <button class="btn btn-link btn-sm text-danger p-0" onclick="deleteTardiness({{ record.id }})" style="font-size: 0.6875rem;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ROW 2: Sidebar + Request History -->
+    <!-- ROW 2: PTO Statistics + Request History -->
     <div class="row g-3 mt-1">
-        <!-- Left Sidebar - 3 cols -->
+        <!-- PTO Statistics - 3 cols -->
         <div class="col-lg-3">
-            <!-- PTO Statistics Card -->
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header card-header-amber py-2 px-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header card-header-teal py-2 px-3">
                     <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
                         <i class="fas fa-calendar-check" style="font-size: 0.8125rem;"></i>
                         PTO Statistics
@@ -219,112 +320,12 @@
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Pending:</span>
-                        <span class="fw-medium" style="color: #f59e0b;">{{ stats.pending_requests }}</span>
+                        <span class="fw-medium" style="color: #0d9488;">{{ stats.pending_requests }}</span>
                     </div>
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">Denied:</span>
                         <span class="fw-medium text-danger">{{ stats.denied_requests }}</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Call-Outs Card (expandable) -->
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header card-header-red py-2 px-3">
-                    <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 0.8125rem;"></i>
-                        Call-Outs
-                    </span>
-                </div>
-                <div class="card-body">
-                    <button class="btn btn-link w-100 p-0 d-flex align-items-center justify-content-between text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#calloutDetails" aria-expanded="false">
-                        <span class="fw-bold text-dark" style="font-size: 1.5rem;">{{ stats.total_callouts }}</span>
-                        <span class="text-muted d-flex align-items-center gap-1" style="font-size: 0.8125rem;">
-                            {% if stats.total_callouts > 0 %}View dates{% else %}None recorded{% endif %}
-                            <i class="fas fa-chevron-down" style="font-size: 0.6875rem; transition: transform 0.2s;"></i>
-                        </span>
-                    </button>
-                    {% if stats.total_callouts > 0 %}
-                    <div class="collapse mt-3 pt-3 border-top" id="calloutDetails">
-                        <div class="d-flex flex-column gap-2">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Approved:</span>
-                                <span class="text-success">{{ stats.approved_callouts }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Pending:</span>
-                                <span style="color: #f59e0b;">{{ stats.pending_callouts }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Sick Days Used:</span>
-                                <span>{{ stats.total_callouts_used }} days</span>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Tardiness Tracking Card -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header card-header-amber py-2 px-3">
-                    <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
-                        <i class="fas fa-clock" style="font-size: 0.8125rem;"></i>
-                        Tardiness
-                    </span>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted">Incidents:</span>
-                        <span class="fw-semibold">{{ stats.total_tardiness }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">Minutes Late:</span>
-                        <span class="fw-semibold">{{ stats.total_tardiness_minutes }} min</span>
-                    </div>
-
-                    {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                    <!-- Add Tardiness Form -->
-                    <div class="border-top pt-3 mt-3">
-                        <p class="text-muted fw-medium mb-2 d-flex align-items-center gap-1" style="font-size: 0.75rem;">
-                            <i class="fas fa-plus" style="font-size: 0.625rem;"></i> Record Tardiness
-                        </p>
-                        <form id="tardinessForm">
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <input type="date" class="form-control form-control-sm" id="tardiness_date" style="font-size: 0.8125rem;" required>
-                                </div>
-                                <div class="col-6">
-                                    <input type="number" class="form-control form-control-sm" id="tardiness_minutes" placeholder="Min late" min="1" style="font-size: 0.8125rem;" required>
-                                </div>
-                            </div>
-                            <input type="text" class="form-control form-control-sm mb-2" id="tardiness_reason" placeholder="Reason (optional)" style="font-size: 0.8125rem;">
-                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100" style="font-size: 0.8125rem;">
-                                <i class="fas fa-plus me-1" style="font-size: 0.6875rem;"></i>Add
-                            </button>
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    {% if tardiness_records %}
-                    <div class="border-top pt-3 mt-3">
-                        <p class="text-muted fw-medium mb-2" style="font-size: 0.75rem;">Recent</p>
-                        <div style="max-height: 120px; overflow-y: auto;">
-                            {% for record in tardiness_records[:5] %}
-                            <div class="d-flex justify-content-between align-items-center py-2" style="font-size: 0.8125rem;">
-                                <span class="text-muted">
-                                    {{ record.date }} - {{ record.minutes_late }}min
-                                </span>
-                                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
-                                <button class="btn btn-link btn-sm text-danger p-0" onclick="deleteTardiness({{ record.id }})" style="font-size: 0.75rem;">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                                {% endif %}
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -620,8 +621,13 @@
 
     /* 3. Consistent card header colors via CSS variables */
     .card-header-blue { background-color: var(--bs-primary, #0d6efd); color: white; }
-    .card-header-amber { background-color: #f59e0b; color: white; }
-    .card-header-red { background-color: var(--bs-danger, #dc3545); color: white; }
+    .card-header-teal { background-color: #0d9488; color: white; }
+
+    /* Compact card styling for balance/stats cards */
+    .card-compact .card-body { padding: 0.75rem; }
+    .card-compact .balance-number { font-size: 1.75rem; }
+    .card-compact .progress { margin-bottom: 0.5rem; }
+    .card-compact table td { padding-top: 0.25rem; padding-bottom: 0.25rem; }
 
     /* 4. Visual grouping in Employee Info */
     .field-group {
