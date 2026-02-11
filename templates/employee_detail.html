@@ -366,6 +366,9 @@
                                         <th class="py-2 px-3 fw-medium" style="font-size: 0.8125rem;">Type</th>
                                         <th class="py-2 px-3 fw-medium" style="font-size: 0.8125rem;">Days</th>
                                         <th class="py-2 px-3 fw-medium" style="font-size: 0.8125rem;">Status</th>
+                                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                                        <th class="py-2 px-3 fw-medium" style="font-size: 0.8125rem;">Actions</th>
+                                        {% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -414,6 +417,22 @@
                                                 </span>
                                             {% endif %}
                                         </td>
+                                        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                                        <td class="py-2 px-3">
+                                            <a href="{{ url_for('edit_request', request_id=request.id) }}"
+                                               class="btn btn-warning btn-sm me-1" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;"
+                                               title="Edit Request">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('delete_request', request_id=request.id) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;"
+                                                        title="Delete Request"
+                                                        onclick="return confirm('Delete this request?{% if request.status in ['approved', 'in_progress', 'completed'] %} Balance will be restored.{% endif %}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                        {% endif %}
                                     </tr>
                                     {% endfor %}
                                 </tbody>

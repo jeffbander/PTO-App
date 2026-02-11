@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Edit PTO Request - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-edit me-2"></i>Edit PTO Request
+        </h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Edit Request #{{ request.id }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>PTO Request Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Employee Info (Read-only) -->
+                <div class="alert alert-info mb-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong><i class="fas fa-user me-2"></i>Employee:</strong> {{ member.name }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong><i class="fas fa-briefcase me-2"></i>Position:</strong> {{ member.position.name if member.position else 'N/A' }}
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <strong><i class="fas fa-tag me-2"></i>Request ID:</strong> #{{ request.id }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong><i class="fas fa-info-circle me-2"></i>Current Status:</strong>
+                            <span class="badge bg-{% if request.status == 'approved' %}success{% elif request.status == 'pending' %}warning{% elif request.status == 'in_progress' %}info{% else %}secondary{% endif %}">
+                                {{ request.status|title }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if request.status in ['approved', 'in_progress', 'completed'] %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Note:</strong> This request has already been approved. Changes to dates or PTO type will automatically adjust the employee's balance.
+                </div>
+                {% endif %}
+
+                <form method="POST">
+                    <!-- Dates -->
+                    <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-calendar text-primary me-2"></i>Request Dates</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="start_date" class="form-label">
+                                Start Date <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="start_date" name="start_date"
+                                   value="{{ request.start_date }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="end_date" class="form-label">
+                                End Date <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="end_date" name="end_date"
+                                   value="{{ request.end_date }}" required>
+                        </div>
+                    </div>
+
+                    <!-- Current Duration Display -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="alert alert-light">
+                                <strong>Current Duration:</strong> {{ request.duration_days }} business day(s) ({{ request.duration_hours }} hours)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PTO Type -->
+                    <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-tag text-primary me-2"></i>Request Type</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="pto_type" class="form-label">
+                                PTO Type <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="pto_type" name="pto_type" required>
+                                <option value="PTO" {% if request.pto_type == 'PTO' %}selected{% endif %}>PTO (Vacation)</option>
+                                <option value="Sick Leave" {% if request.pto_type == 'Sick Leave' %}selected{% endif %}>Sick Leave</option>
+                                <option value="Personal Day" {% if request.pto_type == 'Personal Day' %}selected{% endif %}>Personal Day</option>
+                                <option value="Bereavement" {% if request.pto_type == 'Bereavement' %}selected{% endif %}>Bereavement</option>
+                                <option value="Jury Duty" {% if request.pto_type == 'Jury Duty' %}selected{% endif %}>Jury Duty</option>
+                                <option value="Other" {% if request.pto_type == 'Other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            {% if request.is_call_out %}
+                            <div class="mt-4">
+                                <span class="badge bg-danger fs-6">
+                                    <i class="fas fa-exclamation-circle me-1"></i>Call Out Request
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Reason -->
+                    <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-comment text-primary me-2"></i>Reason</h6>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label for="reason" class="form-label">
+                                Reason / Notes
+                            </label>
+                            <textarea class="form-control" id="reason" name="reason" rows="3"
+                                      placeholder="Optional reason for the time off">{{ request.reason or '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Balance Information -->
+                    <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-calculator text-primary me-2"></i>Employee Balance</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">PTO Balance</h6>
+                                    <h4 class="text-primary">{{ member.pto_balance_hours }} hrs</h4>
+                                    <small class="text-muted">({{ member.pto_balance_days }} days)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Sick Balance</h6>
+                                    <h4 class="text-danger">{{ member.sick_balance_hours }} hrs</h4>
+                                    <small class="text-muted">({{ member.sick_balance_days }} days)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Cancel
+                                </a>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save me-2"></i>Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

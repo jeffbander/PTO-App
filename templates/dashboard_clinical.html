@@ -147,6 +147,15 @@
 {% endblock %}
 
 {% block content %}
+<!-- Breadcrumb Navigation -->
+<nav class="d-flex align-items-center gap-1 small text-muted mb-2">
+    <a href="{{ url_for('index') }}" class="text-muted text-decoration-none hover-primary">
+        <i class="fas fa-home me-1"></i>Home
+    </a>
+    <i class="fas fa-chevron-right" style="font-size: 0.65rem;"></i>
+    <span class="text-dark fw-medium">Clinical Dashboard</span>
+</nav>
+
 <div class="row mb-4">
     <div class="col-12">
         <h2>
@@ -423,6 +432,18 @@
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </form>
+                                    <a href="{{ url_for('edit_request', request_id=request.id) }}"
+                                       class="btn btn-warning btn-sm ms-1"
+                                       data-bs-toggle="tooltip" title="Edit Request">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('delete_request', request_id=request.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                data-bs-toggle="tooltip" title="Delete Request"
+                                                onclick="return confirm('Delete this request? This action cannot be undone.')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             {% if request.is_call_out %}
@@ -527,6 +548,18 @@
                                        data-bs-toggle="tooltip" title="Manage Checklist">
                                         <i class="fas fa-tasks"></i> Manage
                                     </a>
+                                    <a href="{{ url_for('edit_request', request_id=request.id) }}"
+                                       class="btn btn-outline-warning btn-sm ms-1"
+                                       data-bs-toggle="tooltip" title="Edit Request">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('delete_request', request_id=request.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                data-bs-toggle="tooltip" title="Delete Request"
+                                                onclick="return confirm('Delete this request? Balance will be restored.')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -631,6 +664,18 @@
                                        data-bs-toggle="tooltip" title="View Details">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    <a href="{{ url_for('edit_request', request_id=request.id) }}"
+                                       class="btn btn-warning btn-sm ms-1"
+                                       data-bs-toggle="tooltip" title="Edit Request">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('delete_request', request_id=request.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                data-bs-toggle="tooltip" title="Delete Request"
+                                                onclick="return confirm('Delete this approved request? Balance will be restored.')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             {% endfor %}

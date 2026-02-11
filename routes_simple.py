@@ -1364,6 +1364,95 @@ def register_routes(app):
 
         return redirect(url_for('workqueue_in_progress'))
 
+    @app.route('/delete_request/<int:request_id>', methods=['POST'])
+    @roles_required('admin', 'clinical', 'superadmin')
+    def delete_request(request_id):
+        """Delete a PTO request (admin only) - restores balance if approved/in_progress/completed"""
+        try:
+            pto_request = PTORequest.query.get_or_404(request_id)
+            member = pto_request.member
+            employee_name = member.name if member else 'Unknown'
+
+            # If the request was approved/in_progress/completed, restore the balance
+            if pto_request.status in ['approved', 'in_progress', 'completed']:
+                hours_to_restore = pto_request.duration_hours
+
+                if pto_request.pto_type == 'Sick Leave':
+                    member.sick_balance_hours = float(member.sick_balance_hours or 0) + hours_to_restore
+                else:
+                    member.pto_balance_hours = float(member.pto_balance_hours or 0) + hours_to_restore
+
+            # Delete associated CallOutRecord if exists
+            from models import CallOutRecord
+            CallOutRecord.query.filter_by(pto_request_id=request_id).delete()
+
+            # Delete the PTO request
+            db.session.delete(pto_request)
+            db.session.commit()
+
+            flash(f'PTO request for {employee_name} has been deleted. Balance restored if applicable.', 'success')
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error deleting request: {str(e)}', 'error')
+
+        return redirect(url_for('dashboard'))
+
+    @app.route('/edit_request/<int:request_id>', methods=['GET', 'POST'])
+    @roles_required('admin', 'clinical', 'superadmin')
+    def edit_request(request_id):
+        """Edit a PTO request (admin only) - adjusts balance if dates/type change"""
+        pto_request = PTORequest.query.get_or_404(request_id)
+        member = pto_request.member
+
+        if request.method == 'POST':
+            try:
+                # Store old values for balance adjustment
+                old_hours = pto_request.duration_hours
+                old_type = pto_request.pto_type
+                was_approved = pto_request.status in ['approved', 'in_progress', 'completed']
+
+                # Get new values from form
+                new_start_date = request.form.get('start_date')
+                new_end_date = request.form.get('end_date')
+                new_pto_type = request.form.get('pto_type')
+                new_reason = request.form.get('reason', '')
+
+                # If request was approved, we need to adjust balance
+                if was_approved:
+                    # Restore old balance first
+                    if old_type == 'Sick Leave':
+                        member.sick_balance_hours = float(member.sick_balance_hours or 0) + old_hours
+                    else:
+                        member.pto_balance_hours = float(member.pto_balance_hours or 0) + old_hours
+
+                # Update request fields
+                pto_request.start_date = new_start_date
+                pto_request.end_date = new_end_date
+                pto_request.pto_type = new_pto_type
+                pto_request.reason = new_reason
+                pto_request.updated_at = get_eastern_time()
+
+                # If request was approved, deduct new balance
+                if was_approved:
+                    new_hours = pto_request.duration_hours  # Recalculated based on new dates
+                    if new_pto_type == 'Sick Leave':
+                        member.sick_balance_hours = float(member.sick_balance_hours or 0) - new_hours
+                    else:
+                        member.pto_balance_hours = float(member.pto_balance_hours or 0) - new_hours
+
+                db.session.commit()
+
+                flash(f'PTO request for {member.name} has been updated successfully.', 'success')
+                return redirect(url_for('dashboard'))
+
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error updating request: {str(e)}', 'error')
+
+        # GET request - show edit form
+        return render_template('edit_request.html', request=pto_request, member=member)
+
     @app.route('/check_and_complete_requests')
     def check_and_complete_requests():
         """Check for PTO requests that should be marked as completed based on end date"""
