@@ -336,8 +336,8 @@ def register_routes(app):
 
             # Server-side validation for call-out requests
             if call_out_flag:
-                if pto_type != 'Sick Leave':
-                    flash('Call-out requests must use PTO Type: Sick Leave.', 'error')
+                if pto_type != 'Sick':
+                    flash('Call-out requests must use PTO Type: Sick.', 'error')
                     return redirect(url_for('index'))
 
                 if not reason or reason.strip() == '':
@@ -1058,8 +1058,8 @@ def register_routes(app):
             return jsonify({'success': False, 'error': 'Start date, end date, and PTO type are required'}), 400
 
         # Call-out validation
-        if is_call_out and pto_type != 'Sick Leave':
-            return jsonify({'success': False, 'error': 'Call-out requests must use Sick Leave type'}), 400
+        if is_call_out and pto_type != 'Sick':
+            return jsonify({'success': False, 'error': 'Call-out requests must use Sick type'}), 400
 
         try:
             # Determine manager team from employee's position
@@ -1377,7 +1377,7 @@ def register_routes(app):
             if pto_request.status in ['approved', 'in_progress', 'completed']:
                 hours_to_restore = pto_request.duration_hours
 
-                if pto_request.pto_type == 'Sick Leave':
+                if pto_request.pto_type == 'Sick':
                     member.sick_balance_hours = float(member.sick_balance_hours or 0) + hours_to_restore
                 else:
                     member.pto_balance_hours = float(member.pto_balance_hours or 0) + hours_to_restore
@@ -1421,7 +1421,7 @@ def register_routes(app):
                 # If request was approved, we need to adjust balance
                 if was_approved:
                     # Restore old balance first
-                    if old_type == 'Sick Leave':
+                    if old_type == 'Sick':
                         member.sick_balance_hours = float(member.sick_balance_hours or 0) + old_hours
                     else:
                         member.pto_balance_hours = float(member.pto_balance_hours or 0) + old_hours
@@ -1436,7 +1436,7 @@ def register_routes(app):
                 # If request was approved, deduct new balance
                 if was_approved:
                     new_hours = pto_request.duration_hours  # Recalculated based on new dates
-                    if new_pto_type == 'Sick Leave':
+                    if new_pto_type == 'Sick':
                         member.sick_balance_hours = float(member.sick_balance_hours or 0) - new_hours
                     else:
                         member.pto_balance_hours = float(member.pto_balance_hours or 0) - new_hours

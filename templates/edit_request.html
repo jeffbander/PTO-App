@@ -94,7 +94,7 @@
                             </label>
                             <select class="form-select" id="pto_type" name="pto_type" required>
                                 <option value="PTO" {% if request.pto_type == 'PTO' %}selected{% endif %}>PTO (Vacation)</option>
-                                <option value="Sick Leave" {% if request.pto_type == 'Sick Leave' %}selected{% endif %}>Sick Leave</option>
+                                <option value="Sick" {% if request.pto_type == 'Sick' %}selected{% endif %}>Sick</option>
                                 <option value="Personal Day" {% if request.pto_type == 'Personal Day' %}selected{% endif %}>Personal Day</option>
                                 <option value="Bereavement" {% if request.pto_type == 'Bereavement' %}selected{% endif %}>Bereavement</option>
                                 <option value="Jury Duty" {% if request.pto_type == 'Jury Duty' %}selected{% endif %}>Jury Duty</option>

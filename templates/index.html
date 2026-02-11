@@ -133,23 +133,40 @@
 </div>
 
 <!-- Information Card -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="fas fa-info-circle me-2"></i>Important Information
-                </h5>
-                <ul class="mb-0">
-                    <li>PTO requests must be submitted at least 48 hours in advance for approval</li>
-                    <li>Emergency requests will be reviewed on a case-by-case basis</li>
-                    <li>You will receive email notifications about your request status</li>
-                    <li>Approved PTO will be automatically deducted from your balance</li>
-                    <li>Contact your supervisor for urgent requests or questions</li>
+<div class="row mt-4 justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pb-0 pt-3 px-4">
+                <h6 class="mb-0 d-flex align-items-center gap-2 text-primary fw-semibold">
+                    <i class="fas fa-info-circle"></i>
+                    Important Information
+                </h6>
+            </div>
+            <div class="card-body px-4 pt-3">
+                <ul class="list-unstyled mb-4">
+                    <li class="d-flex align-items-start gap-2 mb-2 text-muted small">
+                        <span class="text-primary mt-1">•</span>
+                        <span>PTO requests must be submitted at least 48 hours in advance for approval</span>
+                    </li>
+                    <li class="d-flex align-items-start gap-2 mb-2 text-muted small">
+                        <span class="text-primary mt-1">•</span>
+                        <span>Emergency requests will be reviewed on a case-by-case basis</span>
+                    </li>
+                    <li class="d-flex align-items-start gap-2 mb-2 text-muted small">
+                        <span class="text-primary mt-1">•</span>
+                        <span>You will receive email notifications about your request status</span>
+                    </li>
+                    <li class="d-flex align-items-start gap-2 mb-2 text-muted small">
+                        <span class="text-primary mt-1">•</span>
+                        <span>Approved PTO will be automatically deducted from your balance</span>
+                    </li>
+                    <li class="d-flex align-items-start gap-2 mb-0 text-muted small">
+                        <span class="text-primary mt-1">•</span>
+                        <span>Contact your supervisor for urgent requests or questions</span>
+                    </li>
                 </ul>
-                <hr>
-                <a href="{{ url_for('user_manual') }}" class="btn btn-outline-info">
-                    <i class="fas fa-book me-2"></i>View User Manual
+                <a href="{{ url_for('user_manual') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-file-alt me-2"></i>View User Manual
                 </a>
             </div>
         </div>

@@ -539,7 +539,7 @@
                                 <option value="">Select type...</option>
                                 <option value="Vacation">Vacation</option>
                                 <option value="Personal">Personal</option>
-                                <option value="Sick Leave">Sick Leave</option>
+                                <option value="Sick">Sick</option>
                             </select>
                         </div>
                         <!-- Partial Day Toggle -->
@@ -1116,14 +1116,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Call-out toggle - auto-select Sick Leave when checked
+    // Call-out toggle - auto-select Sick when checked
     const callOutCheckbox = document.getElementById('is_call_out');
     const ptoTypeSelect = document.getElementById('pto_type');
 
     if (callOutCheckbox && ptoTypeSelect) {
         callOutCheckbox.addEventListener('change', function() {
             if (this.checked) {
-                ptoTypeSelect.value = 'Sick Leave';
+                ptoTypeSelect.value = 'Sick';
                 // Set start and end date to today for call-outs
                 const today = new Date().toISOString().split('T')[0];
                 document.getElementById('pto_start_date').value = today;
@@ -1156,8 +1156,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Call-out validation
-            if (formData.is_call_out && formData.pto_type !== 'Sick Leave') {
-                showFeedback('Call-out requests must use Sick Leave type', 'danger');
+            if (formData.is_call_out && formData.pto_type !== 'Sick') {
+                showFeedback('Call-out requests must use Sick type', 'danger');
                 return;
             }
 
