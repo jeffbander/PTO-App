@@ -103,9 +103,9 @@ def initialize_database():
         # Initialize positions if they don't exist
         positions_to_create = [
             {'name': 'APP', 'team': 'clinical'},
-            {'name': 'CVI RNs', 'team': 'clinical'},
+            {'name': 'RNs', 'team': 'clinical'},
             {'name': 'CVI MOAs', 'team': 'clinical'},
-            {'name': 'CVI Echo Techs', 'team': 'clinical'},
+            {'name': 'Echo Techs', 'team': 'clinical'},
             {'name': 'Secretary II', 'team': 'admin'},
             {'name': 'Leadership', 'team': 'admin'},
             {'name': 'Other', 'team': 'admin'},
