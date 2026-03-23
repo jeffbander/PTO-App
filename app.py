@@ -146,7 +146,7 @@ def initialize_database():
             {
                 'name': 'Darline Saint-Victor',
                 'email': 'darline.saintvictor@mountsinai.org',
-                'role': 'superadmin',
+                'role': 'clinical',
                 'password': 'password#1'
             },
             {
