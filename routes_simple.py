@@ -22,21 +22,6 @@ def register_routes(app):
     # Initialize the email service
     email_service = EmailService()
 
-    @app.route('/cleanup-test-users', methods=['POST'])
-    def cleanup_test_users():
-        """Temporary endpoint to remove non-mountsinai.org users"""
-        removed = []
-        kept = []
-        for member in TeamMember.query.all():
-            if not member.email.lower().endswith('@mountsinai.org'):
-                PTORequest.query.filter_by(member_id=member.id).delete()
-                removed.append({'name': member.name, 'email': member.email})
-                db.session.delete(member)
-            else:
-                kept.append({'name': member.name, 'email': member.email})
-        db.session.commit()
-        return jsonify({'removed': removed, 'kept': kept})
-
     @app.route('/')
     def index():
         """Main page for submitting PTO requests"""
