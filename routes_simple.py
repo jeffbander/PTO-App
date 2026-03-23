@@ -606,15 +606,17 @@ def register_routes(app):
     @roles_required('echo_supervisor', 'superadmin')
     def echo_supervisor_dashboard():
         """Echo Supervisor dashboard"""
-        # Get Echo Tech positions (positions with 'Echo' in the name)
-        echo_positions = Position.query.filter(Position.name.contains('Echo')).all()
+        # Get Echo Tech and Vascular Tech positions
+        echo_positions = Position.query.filter(
+            db.or_(Position.name.contains('Echo'), Position.name.contains('Vascular'))
+        ).all()
         echo_pos_ids = [p.id for p in echo_positions]
 
-        # Get Echo Tech team members
+        # Get Echo Tech and Vascular Tech team members
         echo_members = TeamMember.query.filter(TeamMember.position_id.in_(echo_pos_ids)).all()
         echo_member_ids = [m.id for m in echo_members]
 
-        # Get all PTO requests from Echo Tech team members
+        # Get all PTO requests from Echo Tech and Vascular Tech team members
         requests = PTORequest.query.filter(PTORequest.member_id.in_(echo_member_ids)).all()
 
         return render_template('dashboard_echo_supervisor.html', requests=requests)

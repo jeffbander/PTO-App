@@ -142,6 +142,18 @@ def initialize_database():
                 'email': 'htn.prevention@mountsinai.org',
                 'role': 'superadmin',
                 'password': 'Password123'
+            },
+            {
+                'name': 'Darline Saint-Victor',
+                'email': 'darline.saintvictor@mountsinai.org',
+                'role': 'superadmin',
+                'password': 'password#1'
+            },
+            {
+                'name': 'Sukhjeet Dhaliwal',
+                'email': 'Sukhjeet.Dhaliwal@mountsinai.org',
+                'role': 'echo_supervisor',
+                'password': 'password#1'
             }
         ]
 

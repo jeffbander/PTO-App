@@ -195,7 +195,7 @@ class Manager(User):
             return True
         if self.role == 'moa_supervisor' and 'MOA' in position.name:
             return True
-        if self.role == 'echo_supervisor' and 'Echo' in position.name:
+        if self.role == 'echo_supervisor' and ('Echo' in position.name or 'Vascular' in position.name):
             return True
         return False
     
