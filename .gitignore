@@ -50,3 +50,4 @@ mswcvi-export-*.json
 import_to_neon.py
 
 .vercel
+.env*.local
