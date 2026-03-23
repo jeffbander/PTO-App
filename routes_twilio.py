@@ -79,21 +79,24 @@ def register_twilio_routes(app):
             load_dotenv(override=True)  # Reload .env to get latest values
 
             manager_team = member.position.team if member.position else None
-            manager_sms = None
+            manager_sms_raw = None
 
             if manager_team == 'admin':
-                manager_sms = os.getenv('MANAGER_ADMIN_SMS')
+                manager_sms_raw = os.getenv('MANAGER_ADMIN_SMS')
             elif manager_team == 'clinical':
-                manager_sms = os.getenv('MANAGER_CLINICAL_SMS')
+                manager_sms_raw = os.getenv('MANAGER_CLINICAL_SMS')
 
-            logger.info(f"Manager team: {manager_team}, Manager SMS: {manager_sms}")
+            logger.info(f"Manager team: {manager_team}, Manager SMS: {manager_sms_raw}")
 
-            if manager_sms and manager_sms.strip():
-                sms_service.send_manager_notification_sms(
-                    manager_sms.strip(),
-                    member.name,
-                    pto_request.id
-                )
+            if manager_sms_raw and manager_sms_raw.strip():
+                # Support multiple comma-separated phone numbers
+                manager_numbers = [n.strip() for n in manager_sms_raw.split(',') if n.strip()]
+                for manager_sms in manager_numbers:
+                    sms_service.send_manager_notification_sms(
+                        manager_sms,
+                        member.name,
+                        pto_request.id
+                    )
 
             # Generate empty TwiML response (SMS already sent via API)
             twiml_response = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
