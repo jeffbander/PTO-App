@@ -3,7 +3,7 @@ from database import db
 from models import PTORequest, TeamMember, Manager, User, PendingEmployee, Position, TardinessRecord
 from pto_system import PTOTrackerSystem
 from auth import roles_required, authenticate_user, login_user, logout_user, get_current_user
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from email_service import EmailService
 
@@ -424,11 +424,13 @@ def register_routes(app):
                 title = f'{request.member.name} - {request.pto_type}'
 
             # Create event for FullCalendar
+            # FullCalendar end date is exclusive, so add 1 day
+            end_date_exclusive = (datetime.strptime(request.end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
             event = {
                 'id': f'pto-{request.id}',
                 'title': title,
                 'start': request.start_date,
-                'end': request.end_date,
+                'end': end_date_exclusive,
                 'backgroundColor': color,
                 'borderColor': color,
                 'textColor': text_color,
@@ -559,11 +561,13 @@ def register_routes(app):
                     title = request.member.name
 
                 # Build event
+                # FullCalendar end date is exclusive, so add 1 day
+                end_date_exclusive = (datetime.strptime(request.end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
                 event = {
                     'id': request.id,
                     'title': title,
                     'start': request.start_date,
-                    'end': request.end_date,
+                    'end': end_date_exclusive,
                     'color': color,
                     'textColor': text_color,
                     'allDay': True,
