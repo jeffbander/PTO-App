@@ -16,6 +16,30 @@ def get_eastern_time():
     # Return naive datetime (no timezone info) but in Eastern time
     return eastern_now.replace(tzinfo=None)
 
+def _get_business_day_segments(start_str, end_str):
+    """Split a date range into segments of consecutive business days (no weekends).
+    Returns list of (segment_start, segment_end_exclusive) string tuples."""
+    start = datetime.strptime(start_str, '%Y-%m-%d').date()
+    end = datetime.strptime(end_str, '%Y-%m-%d').date()
+    segments = []
+    current_start = None
+    d = start
+    while d <= end:
+        if d.weekday() < 5:  # Monday-Friday
+            if current_start is None:
+                current_start = d
+        else:
+            if current_start is not None:
+                # End exclusive for FullCalendar
+                segments.append((current_start.strftime('%Y-%m-%d'), (d).strftime('%Y-%m-%d')))
+                current_start = None
+        d += timedelta(days=1)
+    # Close final segment
+    if current_start is not None:
+        segments.append((current_start.strftime('%Y-%m-%d'), (end + timedelta(days=1)).strftime('%Y-%m-%d')))
+    return segments
+
+
 def register_routes(app):
     # Initialize the PTO system
     pto_system = PTOTrackerSystem()
@@ -423,31 +447,31 @@ def register_routes(app):
             else:
                 title = f'{request.member.name} - {request.pto_type}'
 
-            # Create event for FullCalendar
-            # FullCalendar end date is exclusive, so add 1 day
-            end_date_exclusive = (datetime.strptime(request.end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
-            event = {
-                'id': f'pto-{request.id}',
-                'title': title,
-                'start': request.start_date,
-                'end': end_date_exclusive,
-                'backgroundColor': color,
-                'borderColor': color,
-                'textColor': text_color,
-                'extendedProps': {
-                    'employee': request.member.name,
-                    'employee_position': request.member.position.name if request.member.position else 'Unknown',
-                    'team': request.member.position.team if request.member.position else 'unknown',
-                    'type': request.pto_type,
-                    'status': request.status,
-                    'reason': request.reason or '',
-                    'duration': duration,
-                    'is_partial_day': request.is_partial_day,
-                    'is_call_out': request.is_call_out,
-                    'request_id': request.id
+            # Split into business-day segments (skip weekends)
+            segments = _get_business_day_segments(request.start_date, request.end_date)
+            for idx, (seg_start, seg_end) in enumerate(segments):
+                event = {
+                    'id': f'pto-{request.id}-{idx}',
+                    'title': title,
+                    'start': seg_start,
+                    'end': seg_end,
+                    'backgroundColor': color,
+                    'borderColor': color,
+                    'textColor': text_color,
+                    'extendedProps': {
+                        'employee': request.member.name,
+                        'employee_position': request.member.position.name if request.member.position else 'Unknown',
+                        'team': request.member.position.team if request.member.position else 'unknown',
+                        'type': request.pto_type,
+                        'status': request.status,
+                        'reason': request.reason or '',
+                        'duration': duration,
+                        'is_partial_day': request.is_partial_day,
+                        'is_call_out': request.is_call_out,
+                        'request_id': request.id
+                    }
                 }
-            }
-            calendar_events.append(event)
+                calendar_events.append(event)
 
         return render_template('calendar.html', requests=all_requests, calendar_events=calendar_events)
 
@@ -560,30 +584,30 @@ def register_routes(app):
                 else:
                     title = request.member.name
 
-                # Build event
-                # FullCalendar end date is exclusive, so add 1 day
-                end_date_exclusive = (datetime.strptime(request.end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
-                event = {
-                    'id': request.id,
-                    'title': title,
-                    'start': request.start_date,
-                    'end': end_date_exclusive,
-                    'color': color,
-                    'textColor': text_color,
-                    'allDay': True,
-                    'extendedProps': {
-                        'employee': request.member.name,
-                        'employee_position': request.member.position.name if request.member.position else '',
-                        'type': request.pto_type,
-                        'status': request.status,
-                        'is_call_out': request.is_call_out,
-                        'is_partial_day': request.is_partial_day,
-                        'duration': f"{duration} day{'s' if duration != 1 else ''}",
-                        'reason': request.reason or '',
-                        'team': request.manager_team
+                # Split into business-day segments (skip weekends)
+                segments = _get_business_day_segments(request.start_date, request.end_date)
+                for idx, (seg_start, seg_end) in enumerate(segments):
+                    event = {
+                        'id': f'{request.id}-{idx}',
+                        'title': title,
+                        'start': seg_start,
+                        'end': seg_end,
+                        'color': color,
+                        'textColor': text_color,
+                        'allDay': True,
+                        'extendedProps': {
+                            'employee': request.member.name,
+                            'employee_position': request.member.position.name if request.member.position else '',
+                            'type': request.pto_type,
+                            'status': request.status,
+                            'is_call_out': request.is_call_out,
+                            'is_partial_day': request.is_partial_day,
+                            'duration': f"{duration} day{'s' if duration != 1 else ''}",
+                            'reason': request.reason or '',
+                            'team': request.manager_team
+                        }
                     }
-                }
-                calendar_events.append(event)
+                    calendar_events.append(event)
 
             return jsonify(calendar_events)
         except Exception as e:
