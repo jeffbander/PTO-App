@@ -302,73 +302,78 @@
     <div class="row g-3 mt-1">
         <!-- PTO Statistics - 4 cols -->
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
+            <!-- Requests Summary -->
+            <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header card-header-teal-dark py-2 px-3">
                     <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
-                        <i class="fas fa-chart-bar" style="font-size: 0.8125rem;"></i>
-                        PTO Statistics
+                        <i class="fas fa-clipboard-list" style="font-size: 0.8125rem;"></i>
+                        Requests
                     </span>
                 </div>
                 <div class="card-body py-2">
-                    <!-- Request Counts -->
-                    <div class="mb-2 pb-2 border-bottom">
-                        <small class="text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Requests</small>
-                        <div class="d-flex justify-content-between mt-1">
-                            <span class="text-muted" style="font-size: 0.85rem;">Submitted:</span>
-                            <span class="fw-medium">{{ stats.total_requests }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted" style="font-size: 0.85rem;">Approved:</span>
-                            <span class="fw-medium text-success">{{ stats.approved_requests }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted" style="font-size: 0.85rem;">Pending:</span>
-                            <span class="fw-medium" style="color: #0d9488;">{{ stats.pending_requests }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted" style="font-size: 0.85rem;">Denied:</span>
-                            <span class="fw-medium text-danger">{{ stats.denied_requests }}</span>
-                        </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted" style="font-size: 0.85rem;">Submitted:</span>
+                        <span class="fw-medium">{{ stats.total_requests }}</span>
                     </div>
-                    <!-- PTO Used -->
-                    <div class="mb-2 pb-2 border-bottom">
-                        <small class="text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">PTO Taken</small>
-                        <div class="d-flex justify-content-between mt-1">
-                            <span class="text-muted" style="font-size: 0.85rem;">Days:</span>
-                            <span class="fw-medium">{{ stats.total_pto_days_used }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted" style="font-size: 0.85rem;">Hours:</span>
-                            <span class="fw-medium">{{ stats.total_pto_hours_used }}</span>
-                        </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted" style="font-size: 0.85rem;">Approved:</span>
+                        <span class="fw-medium text-success">{{ stats.approved_requests }}</span>
                     </div>
-                    <!-- Sick Used -->
-                    <div class="mb-2 pb-2 border-bottom">
-                        <small class="text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Sick Taken</small>
-                        <div class="d-flex justify-content-between mt-1">
-                            <span class="text-muted" style="font-size: 0.85rem;">Days:</span>
-                            <span class="fw-medium">{{ stats.total_sick_days_used }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted" style="font-size: 0.85rem;">Hours:</span>
-                            <span class="fw-medium">{{ stats.total_sick_hours_used }}</span>
-                        </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted" style="font-size: 0.85rem;">Pending:</span>
+                        <span class="fw-medium" style="color: #0d9488;">{{ stats.pending_requests }}</span>
                     </div>
-                    <!-- Call-Outs -->
-                    <div>
-                        <small class="text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Call-Outs</small>
-                        <div class="d-flex justify-content-between mt-1">
-                            <span class="text-muted" style="font-size: 0.85rem;">Count:</span>
-                            <span class="fw-medium text-danger">{{ stats.total_callouts }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted" style="font-size: 0.85rem;">Days:</span>
-                            <span class="fw-medium">{{ stats.total_callout_days_used }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted" style="font-size: 0.85rem;">Hours:</span>
-                            <span class="fw-medium">{{ stats.total_callout_hours_used }}</span>
-                        </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted" style="font-size: 0.85rem;">Denied:</span>
+                        <span class="fw-medium text-danger">{{ stats.denied_requests }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed (Past Dates) -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header py-2 px-3" style="background-color: #1a5632; color: #fff;">
+                    <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
+                        <i class="fas fa-check-circle" style="font-size: 0.8125rem;"></i>
+                        Completed (Past)
+                    </span>
+                </div>
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted" style="font-size: 0.85rem;">PTO:</span>
+                        <span class="fw-medium">{{ stats.completed_pto_days }} days ({{ stats.completed_pto_hours }} hrs)</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted" style="font-size: 0.85rem;">Sick:</span>
+                        <span class="fw-medium">{{ stats.completed_sick_days }} days ({{ stats.completed_sick_hours }} hrs)</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted" style="font-size: 0.85rem;">Call-Outs:</span>
+                        <span class="fw-medium text-danger">{{ stats.completed_callout_days }} days ({{ stats.completed_callout_hours }} hrs)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Approved (Including Future) -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header py-2 px-3" style="background-color: #1a3a5c; color: #fff;">
+                    <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
+                        <i class="fas fa-calendar-check" style="font-size: 0.8125rem;"></i>
+                        All Approved (Incl. Future)
+                    </span>
+                </div>
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted" style="font-size: 0.85rem;">PTO:</span>
+                        <span class="fw-medium">{{ stats.all_pto_days }} days ({{ stats.all_pto_hours }} hrs)</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted" style="font-size: 0.85rem;">Sick:</span>
+                        <span class="fw-medium">{{ stats.all_sick_days }} days ({{ stats.all_sick_hours }} hrs)</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted" style="font-size: 0.85rem;">Call-Outs:</span>
+                        <span class="fw-medium text-danger">{{ stats.all_callout_days }} days ({{ stats.all_callout_hours }} hrs)</span>
                     </div>
                 </div>
             </div>
