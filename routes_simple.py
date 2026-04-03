@@ -220,7 +220,46 @@ def register_routes(app):
         """Super admin dashboard"""
         requests = pto_system.get_all_requests()
         team_members = TeamMember.query.all()
-        return render_template('dashboard_superadmin.html', requests=requests, team_members=team_members)
+
+        # Build calendar events with weekend splitting
+        calendar_events = []
+        for req in requests:
+            if req.is_call_out:
+                color = '#dc3545'
+                text_color = '#fff'
+            elif req.status == 'approved':
+                color = '#28a745'
+                text_color = '#fff'
+            elif req.status == 'pending':
+                color = '#ffc107'
+                text_color = '#000'
+            else:
+                color = '#6c757d'
+                text_color = '#fff'
+
+            title = f"Call Out - {req.member.name}" if req.is_call_out else f"{req.member.name} - {req.pto_type}"
+            segments = _get_business_day_segments(req.start_date, req.end_date)
+            for idx, (seg_start, seg_end) in enumerate(segments):
+                calendar_events.append({
+                    'title': title,
+                    'start': seg_start,
+                    'end': seg_end,
+                    'backgroundColor': color,
+                    'borderColor': color,
+                    'textColor': text_color,
+                    'extendedProps': {
+                        'status': req.status,
+                        'is_call_out': req.is_call_out,
+                        'type': req.pto_type,
+                        'team': req.member.team if req.member else 'unknown',
+                        'employee': req.member.name if req.member else 'Unknown',
+                    }
+                })
+
+        return render_template('dashboard_superadmin.html',
+                               requests=requests,
+                               team_members=team_members,
+                               calendar_events=calendar_events)
 
     @app.route('/api/staff-directory')
     def api_staff_directory():

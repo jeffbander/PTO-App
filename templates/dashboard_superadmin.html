@@ -3,232 +3,281 @@
 {% block title %}Super Admin Dashboard - MSW CVI PTO Tracker{% endblock %}
 
 {% block extra_head %}
-<!-- FullCalendar CSS -->
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css' rel='stylesheet' />
 <style>
-/* Calendar styling */
-#teamCalendar {
-    max-height: 500px;
+.stat-card {
+    border-radius: 12px;
+    padding: 20px;
+    color: #fff;
+    text-align: center;
+    transition: transform 0.2s;
+}
+.stat-card:hover { transform: translateY(-3px); }
+.stat-card .number { font-size: 2.2rem; font-weight: 700; }
+.stat-card .label { font-size: 0.85rem; opacity: 0.9; margin-top: 4px; }
+.stat-pending { background: linear-gradient(135deg, #f0ad4e, #ec971f); }
+.stat-approved { background: linear-gradient(135deg, #5cb85c, #449d44); }
+.stat-total { background: linear-gradient(135deg, #337ab7, #286090); }
+.stat-members { background: linear-gradient(135deg, #5bc0de, #31b0d5); }
+
+.pending-card {
+    border-left: 4px solid #f0ad4e;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    transition: box-shadow 0.2s;
+}
+.pending-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+.pending-card.call-out { border-left-color: #dc3545; }
+
+.request-table th { font-size: 0.85rem; text-transform: uppercase; color: #6c757d; border-bottom: 2px solid #dee2e6; }
+.request-table td { vertical-align: middle; }
+
+.fc-event { cursor: pointer; }
+.status-approved { background-color: #28a745 !important; border-color: #28a745 !important; }
+.status-pending { background-color: #ffc107 !important; border-color: #ffc107 !important; color: #000 !important; }
+.status-callout { background-color: #dc3545 !important; border-color: #dc3545 !important; }
+
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+.quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: transform 0.15s;
+}
+.quick-action-btn:hover { transform: translateY(-1px); }
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.fc-event {
-    cursor: pointer;
+.tab-filter .nav-link {
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #555;
+    border: 1px solid #dee2e6;
+    margin-right: 6px;
 }
-
-.status-approved {
-    background-color: #28a745 !important;
-    border-color: #28a745 !important;
-}
-
-.status-pending {
-    background-color: #ffc107 !important;
-    border-color: #ffc107 !important;
-    color: #000 !important;
-}
-
-.status-callout {
-    background-color: #dc3545 !important;
-    border-color: #dc3545 !important;
-}
-
-.legend-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 2px;
-    display: inline-block;
-}
-
-/* Filter buttons */
-.filter-buttons {
-    padding: 15px;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-    margin-bottom: 15px;
-}
-
-.filter-buttons .btn-group {
-    width: 100%;
-}
-
-.filter-buttons .btn {
-    flex: 1;
-}
-
-.filter-badge {
-    font-size: 0.75em;
-    vertical-align: middle;
-    margin-left: 5px;
+.tab-filter .nav-link.active {
+    background-color: #337ab7;
+    border-color: #337ab7;
+    color: #fff;
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <h2>
-            <i class="fas fa-crown me-2"></i>Super Admin Dashboard
-            <small class="text-muted">- Welcome {{ session.user_name }}</small>
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1" style="font-weight: 700; color: #1a1a2e;">
+            <i class="fas fa-shield-alt me-2" style="color: #337ab7;"></i>Super Admin Dashboard
         </h2>
+        <p class="text-muted mb-0">Welcome back, {{ session.user_name }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('calendar') }}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-calendar me-1"></i>Full Calendar
+        </a>
+        <a href="{{ url_for('employees') }}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-users me-1"></i>All Employees
+        </a>
     </div>
 </div>
+
+<!-- Stats Row -->
+{% set pending_count = requests|selectattr("status", "equalto", "pending")|list|length %}
+{% set approved_count = requests|selectattr("status", "equalto", "approved")|list|length %}
+<div class="row mb-4 g-3">
+    <div class="col-6 col-md-3">
+        <div class="stat-card stat-pending">
+            <div class="number">{{ pending_count }}</div>
+            <div class="label">Pending Requests</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card stat-approved">
+            <div class="number">{{ approved_count }}</div>
+            <div class="label">Approved</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card stat-total">
+            <div class="number">{{ requests|length }}</div>
+            <div class="label">Total Requests</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card stat-members">
+            <div class="number">{{ team_members|length if team_members else 0 }}</div>
+            <div class="label">Team Members</div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Requests (Priority Section) -->
+{% set pending_requests = requests|selectattr("status", "equalto", "pending")|list %}
+{% if pending_requests %}
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 border-warning">
+        <div class="section-title mb-0">
+            <i class="fas fa-clock text-warning"></i>
+            Pending Requests
+            <span class="badge bg-warning text-dark ms-1">{{ pending_requests|length }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% for request in pending_requests %}
+        <div class="pending-card {% if request.is_call_out %}call-out{% endif %}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <strong style="font-size: 1.05rem;">{{ request.member.name if request.member else 'Unknown' }}</strong>
+                    <span class="badge bg-{{ 'primary' if request.member.team == 'clinical' else 'secondary' }} ms-2">
+                        {{ request.member.team|title if request.member else 'N/A' }}
+                    </span>
+                    {% if request.is_call_out %}
+                        <span class="badge bg-danger ms-1"><i class="fas fa-exclamation-circle"></i> Call Out</span>
+                    {% endif %}
+                    <div class="text-muted mt-1" style="font-size: 0.9rem;">
+                        <i class="fas fa-calendar-day me-1"></i>
+                        {{ request.start_date }}{% if request.start_date != request.end_date %} to {{ request.end_date }}{% endif %}
+                        <span class="mx-2">|</span>
+                        <i class="fas fa-tag me-1"></i>{{ request.pto_type }}
+                        <span class="mx-2">|</span>
+                        <i class="fas fa-hourglass-half me-1"></i>
+                        {% if request.is_partial_day %}
+                            {{ "%.1f"|format(request.duration_hours) }} hrs
+                        {% else %}
+                            {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
+                        {% endif %}
+                    </div>
+                    {% if request.reason %}
+                    <div class="text-muted mt-1" style="font-size: 0.85rem;">
+                        <i class="fas fa-comment me-1"></i>{{ request.reason }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2 ms-3">
+                    <a href="{{ url_for('approve_request', request_id=request.id) }}"
+                       class="btn btn-success btn-sm" title="Approve">
+                        <i class="fas fa-check me-1"></i>Approve
+                    </a>
+                    <form method="POST" action="{{ url_for('deny_request', request_id=request.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Deny">
+                            <i class="fas fa-times me-1"></i>Deny
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 <!-- Quick Actions -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card bg-light">
-            <div class="card-body">
-                <h6 class="card-title">
-                    <i class="fas fa-bolt me-2"></i>Quick Actions
-                </h6>
-                <div class="d-flex flex-wrap gap-2">
-                    <a href="{{ url_for('pending_employees') }}" class="btn btn-warning">
-                        <i class="fas fa-user-clock me-2"></i>Pending Employee Registrations
-                    </a>
-                    <a href="{{ url_for('employees') }}" class="btn btn-primary">
-                        <i class="fas fa-users me-2"></i>Manage All Employees
-                    </a>
-                    <a href="{{ url_for('add_employee') }}" class="btn btn-success">
-                        <i class="fas fa-user-plus me-2"></i>Add Employee
-                    </a>
-                    <a href="{{ url_for('calendar') }}" class="btn btn-info">
-                        <i class="fas fa-calendar me-2"></i>View Calendar
-                    </a>
-                    <a href="{{ url_for('manager_manual') }}" class="btn btn-secondary">
-                        <i class="fas fa-book me-2"></i>Manager Manual
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{{ url_for('pending_employees') }}" class="quick-action-btn btn btn-outline-warning">
+        <i class="fas fa-user-clock"></i>Pending Registrations
+    </a>
+    <a href="{{ url_for('add_employee') }}" class="quick-action-btn btn btn-outline-success">
+        <i class="fas fa-user-plus"></i>Add Employee
+    </a>
+    <a href="{{ url_for('manager_manual') }}" class="quick-action-btn btn btn-outline-secondary">
+        <i class="fas fa-book"></i>Manager Manual
+    </a>
 </div>
 
-<!-- Team Calendar -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-calendar-alt me-2"></i>Team Calendar (All Teams)
-                </h5>
-                <div class="d-flex align-items-center gap-3">
-                    <div class="d-flex align-items-center">
-                        <div class="legend-color bg-success me-1"></div>
-                        <small>Approved</small>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <div class="legend-color bg-warning me-1"></div>
-                        <small>Pending</small>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <div class="legend-color bg-danger me-1"></div>
-                        <small>Call Out</small>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="teamCalendar"></div>
-            </div>
+<!-- Calendar -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center" style="background: #1a1a2e; color: #fff;">
+        <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Team Calendar</h6>
+        <div class="d-flex align-items-center gap-3">
+            <span class="d-flex align-items-center gap-1"><span class="legend-dot" style="background:#28a745;"></span> <small>Approved</small></span>
+            <span class="d-flex align-items-center gap-1"><span class="legend-dot" style="background:#ffc107;"></span> <small>Pending</small></span>
+            <span class="d-flex align-items-center gap-1"><span class="legend-dot" style="background:#dc3545;"></span> <small>Call Out</small></span>
         </div>
     </div>
-</div>
-
-<!-- Stats Cards -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="stats-card">
-            <div class="stats-number">{{ requests|selectattr("status", "equalto", "pending")|list|length }}</div>
-            <div class="stats-label">Pending Requests</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stats-card">
-            <div class="stats-number">{{ requests|selectattr("status", "equalto", "approved")|list|length }}</div>
-            <div class="stats-label">Approved Requests</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stats-card">
-            <div class="stats-number">{{ requests|length }}</div>
-            <div class="stats-label">Total Requests</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stats-card">
-            <div class="stats-number">{{ team_members|length if team_members else 0 }}</div>
-            <div class="stats-label">Team Members</div>
-        </div>
+    <div class="card-body">
+        <div id="teamCalendar"></div>
     </div>
 </div>
 
 <!-- All Requests Table -->
 <div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">
-            <i class="fas fa-list me-2"></i>All PTO Requests (System-wide)
-        </h5>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 section-title" style="margin-bottom: 0 !important;">
+            <i class="fas fa-list"></i>All Requests
+        </h6>
+        <nav class="tab-filter">
+            <ul class="nav">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" data-filter="all">All <span class="badge bg-secondary ms-1">{{ requests|length }}</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-filter="pending">Pending</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-filter="approved">Approved</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-filter="callout">Call-Outs</a>
+                </li>
+            </ul>
+        </nav>
     </div>
-    <div class="card-body">
+    <div class="card-body p-0">
         {% if requests %}
-        <!-- Filter Controls -->
-        <div class="filter-buttons">
-            <div class="btn-group" role="group" aria-label="Filter requests">
-                <input type="radio" class="btn-check" name="superAdminFilter" id="filterAllRequests" value="all" checked autocomplete="off">
-                <label class="btn btn-outline-primary" for="filterAllRequests">
-                    All Requests <span class="filter-badge badge bg-primary" id="countAllRequests">{{ requests|length }}</span>
-                </label>
-
-                <input type="radio" class="btn-check" name="superAdminFilter" id="filterPTORequests" value="pto" autocomplete="off">
-                <label class="btn btn-outline-success" for="filterPTORequests">
-                    PTO Only <span class="filter-badge badge bg-success" id="countPTORequests">0</span>
-                </label>
-
-                <input type="radio" class="btn-check" name="superAdminFilter" id="filterCallOutRequests" value="callout" autocomplete="off">
-                <label class="btn btn-outline-danger" for="filterCallOutRequests">
-                    Call-Outs Only <span class="filter-badge badge bg-danger" id="countCallOutRequests">0</span>
-                </label>
-            </div>
-        </div>
-
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover request-table mb-0">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Employee</th>
+                        <th class="ps-3">Employee</th>
                         <th>Team</th>
-                        <th>Position</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
+                        <th>Dates</th>
                         <th>Type</th>
                         <th>Duration</th>
-                        <th>Submitted</th>
                         <th>Status</th>
-                        <th>Manager Team</th>
-                        <th>Actions</th>
+                        <th class="pe-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for request in requests %}
-                    <tr data-request-type="{% if request.is_call_out %}callout{% else %}pto{% endif %}" class="request-row">
-                        <td>#{{ request.id }}</td>
-                        <td>{{ request.member.name if request.member else 'Unknown' }}</td>
+                    <tr data-request-type="{% if request.is_call_out %}callout{% else %}pto{% endif %}"
+                        data-request-status="{{ request.status }}"
+                        class="request-row">
+                        <td class="ps-3">
+                            <strong>{{ request.member.name if request.member else 'Unknown' }}</strong>
+                            <br><small class="text-muted">{{ request.member.position.name if request.member and request.member.position else 'N/A' }}</small>
+                        </td>
                         <td>
                             <span class="badge bg-{{ 'primary' if request.member.team == 'clinical' else 'secondary' }}">
                                 {{ request.member.team|title if request.member else 'N/A' }}
                             </span>
                         </td>
-                        <td>{{ request.member.position if request.member else 'N/A' }}</td>
-                        <td>{{ request.start_date }}</td>
-                        <td>{{ request.end_date }}</td>
+                        <td>
+                            {{ request.start_date }}{% if request.start_date != request.end_date %}<br><small class="text-muted">to {{ request.end_date }}</small>{% endif %}
+                        </td>
                         <td>
                             {% if request.is_call_out %}
-                                <span class="badge bg-danger">
-                                    <i class="fas fa-exclamation-circle"></i> CALL OUT
-                                </span>
+                                <span class="badge bg-danger"><i class="fas fa-exclamation-circle"></i> Call Out</span>
                             {% else %}
-                                {% if request.is_partial_day %}
-                                    <span class="badge bg-info">Partial Day</span><br>
-                                {% endif %}
+                                {% if request.is_partial_day %}<span class="badge bg-info">Partial</span> {% endif %}
                                 <span class="badge bg-secondary">{{ request.pto_type }}</span>
                             {% endif %}
                         </td>
@@ -240,32 +289,21 @@
                             {% endif %}
                         </td>
                         <td>
-                            {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
-                            <br><small class="text-muted">{{ request.submitted_at.strftime('%I:%M %p') if request.submitted_at else '' }}</small>
+                            <span class="badge status-{{ request.status }}">{{ request.status|title }}</span>
                         </td>
-                        <td>
-                            <span class="badge status-{{ request.status }}">
-                                {{ request.status|title }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge bg-dark">{{ request.manager_team|title }}</span>
-                        </td>
-                        <td>
+                        <td class="pe-3">
                             {% if request.status == 'pending' %}
-                                <a href="{{ url_for('approve_request', request_id=request.id) }}" 
-                                   class="btn btn-success btn-sm btn-approve me-1"
-                                   data-bs-toggle="tooltip" title="Approve Request">
+                                <a href="{{ url_for('approve_request', request_id=request.id) }}"
+                                   class="btn btn-success btn-sm me-1" title="Approve">
                                     <i class="fas fa-check"></i>
                                 </a>
                                 <form method="POST" action="{{ url_for('deny_request', request_id=request.id) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-danger btn-sm btn-deny"
-                                            data-bs-toggle="tooltip" title="Deny Request">
+                                    <button type="submit" class="btn btn-danger btn-sm" title="Deny">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </form>
                             {% else %}
-                                <small class="text-muted">No actions</small>
+                                <small class="text-muted">-</small>
                             {% endif %}
                         </td>
                     </tr>
@@ -275,9 +313,8 @@
         </div>
         {% else %}
         <div class="text-center py-5">
-            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">No PTO requests found</h5>
-            <p class="text-muted">All system requests will appear here when submitted.</p>
+            <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No PTO requests yet</h5>
         </div>
         {% endif %}
     </div>
@@ -285,93 +322,12 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-// Initialize filter functionality
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('SuperAdmin Dashboard loaded - initializing...');
-    // Initialize tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-
-    // Initialize filter counts
-    updateFilterCounts();
-
-    // Handle filter changes
-    const filterButtons = document.querySelectorAll('input[name="superAdminFilter"]');
-    filterButtons.forEach(button => {
-        button.addEventListener('change', function() {
-            filterRequests(this.value);
-        });
-    });
-});
-
-function updateFilterCounts() {
-    const allRows = document.querySelectorAll('.request-row');
-    let ptoCount = 0;
-    let calloutCount = 0;
-
-    allRows.forEach(row => {
-        const type = row.getAttribute('data-request-type');
-        if (type === 'callout') {
-            calloutCount++;
-        } else {
-            ptoCount++;
-        }
-    });
-
-    document.getElementById('countAllRequests').textContent = allRows.length;
-    document.getElementById('countPTORequests').textContent = ptoCount;
-    document.getElementById('countCallOutRequests').textContent = calloutCount;
-}
-
-function filterRequests(filterType) {
-    const allRows = document.querySelectorAll('.request-row');
-
-    allRows.forEach(row => {
-        const rowType = row.getAttribute('data-request-type');
-
-        if (filterType === 'all') {
-            row.style.display = '';
-        } else if (filterType === 'pto' && rowType === 'pto') {
-            row.style.display = '';
-        } else if (filterType === 'callout' && rowType === 'callout') {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
-</script>
-
-<!-- FullCalendar JS -->
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js'></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing SuperAdmin Team Calendar...');
+    // Calendar
     const calendarEl = document.getElementById('teamCalendar');
-    console.log('Calendar element found:', calendarEl ? 'Yes' : 'No');
-
-    // Build calendar events from requests
-    const calendarEvents = [
-        {% for request in requests %}
-        {
-            title: '{{ request.member.name if request.member else "Unknown" }}',
-            start: '{{ request.start_date }}',
-            end: '{{ request.end_date }}',
-            allDay: true,
-            extendedProps: {
-                status: '{{ request.status }}',
-                is_call_out: {{ 'true' if request.is_call_out else 'false' }},
-                type: '{{ request.pto_type }}',
-                team: '{{ request.member.team if request.member else "unknown" }}',
-                position: '{{ request.member.position if request.member else "N/A" }}',
-                duration: {% if request.is_partial_day %}'{{ "%.1f"|format(request.duration_hours) }} hrs'{% else %}'{{ request.duration_days }} day{{ "s" if request.duration_days != 1 else "" }}'{% endif %}
-            }
-        },
-        {% endfor %}
-    ];
+    const calendarEvents = {{ calendar_events|tojson|safe }};
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
@@ -382,31 +338,51 @@ document.addEventListener('DOMContentLoaded', function() {
             center: 'title',
             right: 'dayGridMonth,dayGridWeek'
         },
-
         dayMaxEvents: 3,
-
         eventDidMount: function(info) {
             const isCallOut = info.event.extendedProps.is_call_out;
             const status = info.event.extendedProps.status;
-
             if (isCallOut) {
                 info.el.classList.add('status-callout');
             } else {
-                info.el.classList.add(`status-${status}`);
+                info.el.classList.add('status-' + status);
             }
-
-            // Add tooltip
-            const tooltipText = `${info.event.title}\n` +
-                `Team: ${info.event.extendedProps.team}\n` +
-                `Type: ${info.event.extendedProps.type}${isCallOut ? ' (Call Out)' : ''}\n` +
-                `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}\n` +
-                `Duration: ${info.event.extendedProps.duration}`;
-
-            info.el.setAttribute('title', tooltipText);
+            info.el.setAttribute('title',
+                info.event.title + '\n' +
+                'Team: ' + info.event.extendedProps.team + '\n' +
+                'Status: ' + status
+            );
         }
     });
-
     calendar.render();
+
+    // Table filter tabs
+    document.querySelectorAll('.tab-filter .nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('.tab-filter .nav-link').forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+
+            const filter = this.dataset.filter;
+            document.querySelectorAll('.request-row').forEach(row => {
+                const type = row.dataset.requestType;
+                const status = row.dataset.requestStatus;
+                if (filter === 'all') {
+                    row.style.display = '';
+                } else if (filter === 'callout') {
+                    row.style.display = type === 'callout' ? '' : 'none';
+                } else if (filter === 'pending') {
+                    row.style.display = status === 'pending' ? '' : 'none';
+                } else if (filter === 'approved') {
+                    row.style.display = status === 'approved' ? '' : 'none';
+                }
+            });
+        });
+    });
+
+    // Tooltips
+    var tooltipList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipList.map(el => new bootstrap.Tooltip(el));
 });
 </script>
 {% endblock %}
