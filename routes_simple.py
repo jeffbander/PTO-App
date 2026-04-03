@@ -812,13 +812,20 @@ def register_routes(app):
             approved_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'approved'])
             pending_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'pending'])
 
-            # Calculate PTO days used (approved non-call-out requests)
-            total_pto_used = sum(r.duration_days for r in pto_requests
-                                if r.status == 'approved' and not r.is_call_out)
+            # Calculate PTO days/hours used (approved, non-sick, non-call-out)
+            pto_used_requests = [r for r in pto_requests if r.status == 'approved' and not r.is_call_out and r.pto_type != 'Sick']
+            total_pto_days_used = sum(r.duration_days for r in pto_used_requests)
+            total_pto_hours_used = sum(r.duration_hours for r in pto_used_requests)
 
-            # Calculate sick days used (approved call-outs)
-            total_callouts_used = sum(r.duration_days for r in pto_requests
-                                     if r.status == 'approved' and r.is_call_out)
+            # Calculate sick days/hours used (approved Sick type, NOT call-outs)
+            sick_used_requests = [r for r in pto_requests if r.status == 'approved' and r.pto_type == 'Sick' and not r.is_call_out]
+            total_sick_days_used = sum(r.duration_days for r in sick_used_requests)
+            total_sick_hours_used = sum(r.duration_hours for r in sick_used_requests)
+
+            # Calculate call-out days/hours used (approved call-outs)
+            callout_used_requests = [r for r in pto_requests if r.status == 'approved' and r.is_call_out]
+            total_callout_days_used = sum(r.duration_days for r in callout_used_requests)
+            total_callout_hours_used = sum(r.duration_hours for r in callout_used_requests)
 
             # Calculate days until PTO refresh
             if employee.pto_refresh_date:
@@ -844,8 +851,12 @@ def register_routes(app):
                 'total_callouts': total_callouts,
                 'approved_callouts': approved_callouts,
                 'pending_callouts': pending_callouts,
-                'total_pto_used': round(total_pto_used, 1),
-                'total_callouts_used': round(total_callouts_used, 1),
+                'total_pto_days_used': round(total_pto_days_used, 1),
+                'total_pto_hours_used': round(total_pto_hours_used, 1),
+                'total_sick_days_used': round(total_sick_days_used, 1),
+                'total_sick_hours_used': round(total_sick_hours_used, 1),
+                'total_callout_days_used': round(total_callout_days_used, 1),
+                'total_callout_hours_used': round(total_callout_hours_used, 1),
                 'days_until_refresh': days_until_refresh,
                 'total_tardiness': total_tardiness,
                 'total_tardiness_minutes': total_tardiness_minutes
