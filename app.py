@@ -154,6 +154,12 @@ def initialize_database():
                 'email': 'Sukhjeet.Dhaliwal@mountsinai.org',
                 'role': 'echo_supervisor',
                 'password': 'password#1'
+            },
+            {
+                'name': 'Stephen Handzel',
+                'email': 'Stephen.Handzel@mountsinai.org',
+                'role': 'clinical',
+                'password': 'password#1'
             }
         ]
 
