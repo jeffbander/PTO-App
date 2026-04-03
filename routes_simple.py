@@ -1222,12 +1222,30 @@ def register_routes(app):
     @app.route('/approve_request/<int:request_id>')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def approve_request(request_id):
-        """Approve a PTO request and move to in_progress"""
+        """Approve a PTO request and deduct hours from balance"""
         try:
             pto_request = PTORequest.query.get_or_404(request_id)
-            pto_request.status = 'in_progress'  # Move to in_progress, not directly to approved
+
+            if pto_request.status != 'pending':
+                flash('This request has already been processed.', 'warning')
+                return redirect(url_for('dashboard'))
+
+            pto_request.status = 'approved'
             pto_request.approved_date = get_eastern_time()
             pto_request.updated_at = get_eastern_time()
+
+            # Deduct hours from employee balance
+            member = pto_request.member
+            hours_to_deduct = pto_request.duration_hours
+
+            if pto_request.pto_type == 'Sick':
+                current_balance = float(member.sick_balance_hours or 0)
+                member.sick_balance_hours = max(0, current_balance - hours_to_deduct)
+                print(f"Deducted {hours_to_deduct} sick hrs from {member.name}. Balance: {member.sick_balance_hours}")
+            else:
+                current_balance = float(member.pto_balance_hours or 0)
+                member.pto_balance_hours = max(0, current_balance - hours_to_deduct)
+                print(f"Deducted {hours_to_deduct} PTO hrs from {member.name}. Balance: {member.pto_balance_hours}")
 
             db.session.commit()
 
@@ -1235,10 +1253,9 @@ def register_routes(app):
             try:
                 email_service.send_approval_email(pto_request)
             except Exception as e:
-                # Log error but don't fail the request
                 print(f"Failed to send approval email: {str(e)}")
 
-            flash(f'PTO request for {pto_request.member.name} has been approved and moved to In Progress!', 'success')
+            flash(f'PTO request for {member.name} approved! {hours_to_deduct} hours deducted.', 'success')
 
         except Exception as e:
             flash(f'Error approving request: {str(e)}', 'error')
