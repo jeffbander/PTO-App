@@ -1,4 +1,4 @@
-# Manager User Manual
+# Manager Manual
 ## MSW CVI PTO Tracker
 
 **App URL: https://pto-app-eight.vercel.app**
@@ -7,207 +7,297 @@
 
 ## Logging In
 
-1. Go to **https://pto-app-eight.vercel.app**
-2. Click **Login**
-3. Type your work email
-4. Type your password
-5. Click **Sign In**
+1. Go to the app URL
+2. Click **Login** in the navigation bar
+3. Enter your Mount Sinai email and password
+4. You will be redirected to your role-specific dashboard
+
+---
+
+## Manager Roles
+
+| Role | Dashboard | What You Can Manage |
+|------|-----------|---------------------|
+| **Super Admin** | Super Admin Dashboard | All employees across all teams. Full system access including employee management, all requests, and system-wide calendar. |
+| **Clinical** | Clinical Dashboard | All clinical team staff: RNs, CVI MOAs, Echo Techs, Vascular Techs, EKG Techs, Nuclear Techs, Cardiac CT Techs. |
+| **Echo Supervisor** | Echo Supervisor Dashboard | Echo Techs and Vascular Techs only. |
+| **Admin** | Admin Dashboard | Admin team staff: Secretary II, Leadership positions. |
 
 ---
 
 ## Your Dashboard
 
-After you log in, you see your dashboard. It has several sections:
+After logging in, you are directed to your role-specific dashboard. All dashboards share these common features:
 
-**Quick Stats Cards:**
-- Pending Requests - requests waiting for your decision
-- Approved Requests - total approved this period
-- Currently on PTO - who is out today
-- Your Team - total team members
+### Stats Overview
+- **Pending Requests** - requests waiting for your decision
+- **Approved Requests** - total approved requests
+- **Total Requests** - all requests in the system
+- **Team Members** - total employees you manage
 
-**Dashboard Tabs:**
+### Pending Requests Section
+Pending requests appear prominently at the top of your dashboard. Each pending request shows:
+- Employee name and team
+- Dates requested
+- PTO type (Vacation, Personal, Sick, Union Business)
+- Duration in days
+- Approve and Deny buttons
 
-| Tab | What It Shows |
-|-----|---------------|
-| **Pending PTO** | New requests waiting for your answer |
-| **In Progress** | Approved requests needing checklist completion |
-| **Approved** | All approved time off |
-| **Employee Registrations** | New employee sign-ups to approve |
+### Team Calendar
+Your dashboard includes a calendar showing all approved and pending PTO for your team. Calendar color codes:
+- **Green** = Approved
+- **Yellow** = Pending
+- **Red** = Call-Out (auto-approved sick day via SMS)
+- **Purple background** = Mount Sinai Holiday (not a work day)
+
+Use the **prev/next** arrows and **today** button to navigate. Toggle between **month** and **week** views.
+
+### Requests Table
+Below the calendar, a table lists all requests. Use the filter tabs to view:
+- All Requests
+- Pending only
+- Approved only
+- Call-Outs only
 
 ---
 
-## How to Approve a Request
+## Approving a PTO Request
 
-1. Find the request in the **Pending Requests** section
-2. Look at the details:
-   - Who is asking
-   - What dates they want off
-   - What type of time off
-   - How many hours it will use
+1. Find the request in the **Pending Requests** section on your dashboard
+2. Review the details:
+   - Employee name, team, and position
+   - Dates requested (start and end)
+   - PTO type (Vacation, Personal, Sick, Union Business)
+   - Duration in business days
+   - Reason (if provided)
 3. Click the green **Approve** button
-4. The request moves to "In Progress"
-5. Complete the checklist items
-6. The employee gets an email that they are approved
+4. The system will:
+   - Change the request status to **Approved**
+   - Deduct the hours from the employee's balance:
+     - **Sick** type requests deduct from **Sick balance**
+     - **All other types** (Vacation, Personal, Union Business) deduct from **PTO balance**
+   - Send an email notification to the employee
+5. The approved request now appears on the calendar
 
 ---
 
-## How to Deny a Request
+## Denying a PTO Request
 
 1. Find the request in the **Pending Requests** section
 2. Click the red **Deny** button
-3. Type the reason why you are saying no
-4. Click Submit
-5. The employee gets an email with your reason
+3. A denial reason may be requested
+4. The employee receives an email notification with the denial
+5. No hours are deducted from their balance
 
 ---
 
-## Completing the Checklist
+## Understanding Call-Outs
 
-After you approve a request, you need to finish two tasks:
+Call-outs are sick day requests submitted via SMS text message to the Twilio call-out line.
 
-1. **Timekeeping Entered** - Add the time off to the timekeeping system
-2. **Coverage Arranged** - Make sure someone will cover their work
+### How Call-Outs Work
+1. Employee texts the call-out phone number
+2. The system verifies their phone number against the employee database
+3. A sick day PTO request is **automatically created and approved**
+4. Sick hours are **immediately deducted** from the employee's sick balance
+5. All managers receive an SMS notification
+6. The employee receives a confirmation text
 
-Check each box when done. When both are checked, the request is fully complete.
+### What You See on Your Dashboard
+- Call-outs appear with a red **CALL OUT** badge
+- They are already approved — no action is needed from you
+- Click to view details including the original text message
 
----
-
-## Viewing Call-Outs
-
-When someone calls out sick via text message:
-
-1. You get an email and/or SMS notification right away
-2. On your dashboard, call-outs have a red **CALL OUT** label
-3. Click **View Details** to see:
-   - What time they texted
-   - What they said in the text
-   - Their phone number
-
-**Note:** Call-outs are automatically approved. No action needed unless there's an issue.
+### Manager SMS Notifications
+When any employee calls out, the following managers receive an SMS:
+- All managers configured in the system receive notifications regardless of team
 
 ---
 
 ## Managing Employees
 
-**To see all employees:**
-1. Click **Manage Employees** in the menu
-2. You see a list of everyone on your team
-3. Use the position filter dropdown to filter by job title
+### Viewing All Employees
+1. Click **Manage All Employees** (or the employees link in navigation)
+2. You see a list of all employees you have access to
+3. Use the position filter dropdown to narrow by job title
 
-**To add a new employee:**
+### Adding a New Employee
 1. Click **Add Employee**
-2. Fill in their name and email
-3. Pick their team and job
-4. Set their starting PTO balance
-5. Click Save
+2. Fill in:
+   - **Name** - Full name
+   - **Email** - Must be a @mountsinai.org email
+   - **Phone** - Cell phone number (used for SMS call-out authentication)
+   - **Team** - Admin or Clinical
+   - **Position** - Select from available positions
+   - **Starting PTO Hours** - Default is 60 hours (8 days)
+3. Click **Save**
 
-**To edit an employee:**
-1. Click their name
-2. Click **Edit**
-3. Change what you need
-4. Click Save
+### Viewing an Employee's Profile
+Click an employee's name to see their full profile, which includes:
 
-**To see someone's PTO history:**
-1. Click their name
-2. You see all their past requests
-3. You can also see their statistics
+#### Balance Cards
+- **PTO Balance** - Current remaining PTO hours with a progress bar showing usage
+- **Sick Time Balance** - Current remaining sick hours with a progress bar
+- **Starting hours** and **Used hours** breakdown
+- **PTO Refresh Date** - When their balance resets annually
 
----
+#### PTO Statistics (Three Sections)
 
-## Approving New Employee Registrations
+**Requests**
+- Total submitted, approved, pending, and denied counts
 
-When a new person tries to register:
+**Completed (Past)**
+- PTO days and hours actually taken (past dates only)
+- Sick days and hours taken (non-call-out)
+- Call-out days and hours
 
-1. You get an email notification
-2. Go to **Pending Employees** or **Employee Registrations** tab on your dashboard
-3. Review their info (name, email, position)
-4. Click **Approve** to add them to the system
-5. Or click **Deny** if something is wrong
+**All Approved (Including Future)**
+- All approved PTO days and hours including upcoming scheduled time off
+- All approved sick days and hours
+- All call-out days and hours
+
+#### Request History
+- Full list of all PTO requests with dates, type, duration, and status
+- Toggle between list view and calendar view
+- Managers can add PTO requests on behalf of employees
+
+#### Tardiness Records
+- Log and track employee tardiness
+- Add records with date, minutes late, and reason
+
+### Editing an Employee
+1. Click the employee's name to open their profile
+2. Click the pencil icon next to any editable field:
+   - PTO balance hours
+   - Sick balance hours
+   - PTO refresh date
+3. Enter the new value and save
+
+### Deleting an Employee
+1. Go to the employee's profile
+2. If the employee has PTO history, they will be marked as **[INACTIVE]** rather than deleted
+3. If they have no PTO history, they are permanently removed
+4. To permanently delete an inactive employee, delete them again
 
 ---
 
 ## The Calendar
 
-The calendar shows all time off for your team.
+### Main Calendar Page
+Access via **View Calendar** in the navigation or quick actions.
 
-**Colors tell you the status:**
-- **Green** = Approved
-- **Yellow** = Pending (waiting for approval)
-- **Red** = Call-out
-- **Gray** = Denied
+#### Features
+- Full month view with all team PTO displayed
+- **Filter by Team** - Show only Admin or Clinical
+- **Filter by Position** - Show specific positions (RNs, Echo Techs, etc.)
+- Holidays persist on the calendar regardless of filters applied
 
-Click on any item to see more details.
+#### Color Codes
+| Color | Meaning |
+|-------|---------|
+| Green | Approved PTO |
+| Yellow | Pending (awaiting approval) |
+| Red | Call-Out (auto-approved sick) |
+| Purple cell with purple text | Mount Sinai Holiday |
+
+#### Calendar Navigation
+- **< >** arrows to go to previous/next month
+- **today** button (green) to jump to current date
+- **month/week** toggle on the right
+
+### How Multi-Day Requests Display
+- Requests spanning weekdays show as a continuous bar
+- If a request spans a weekend, it splits into separate bars (e.g., Friday bar + Monday bar)
+- Weekends are never shown as PTO days on the calendar
 
 ---
 
-## Different Manager Roles
+## How Time Off is Calculated
 
-### Admin Manager
-- Manages Secretary II, Leadership, and Other admin staff
-- Sees admin team requests and employees
+### Business Days
+- A full work day = **7.5 hours**
+- Only Monday through Friday count as work days
+- Mount Sinai holidays do not count as work days
 
-### Clinical Manager
-- Manages clinical staff (MOAs, RNs, Echo Techs, etc.)
-- Sees clinical team requests and employees
+### Example Calculations
+| Request | Business Days | Hours Deducted |
+|---------|--------------|----------------|
+| Monday to Friday (no holidays) | 5 days | 37.5 hours |
+| Monday to Monday (spans a weekend) | 6 days | 45 hours |
+| Single day | 1 day | 7.5 hours |
+| Partial day (9 AM to 1 PM) | N/A | 4 hours |
 
-### Super Admin
-- Can see and manage ALL employees (both teams)
-- Has access to system-wide reports and settings
+### Partial Day Requests
+Employees can request partial days by checking the "Partial Day" option and entering start and end times. Hours are calculated from the actual time difference, not the standard 7.5 hours.
+
+### Balance Deduction Rules
+| PTO Type | Deducted From | When |
+|----------|---------------|------|
+| Vacation | PTO Balance | When manager approves |
+| Personal | PTO Balance | When manager approves |
+| Union Business | PTO Balance | When manager approves |
+| Sick | Sick Balance | When manager approves |
+| Call-Out (via SMS) | Sick Balance | Immediately on submission (auto-approved) |
+
+---
+
+## Mount Sinai Holidays
+
+These 9 holidays are excluded from PTO calculations and appear on the calendar in purple:
+
+1. **New Year's Day** - January 1
+2. **Martin Luther King Jr. Day** - 3rd Monday in January
+3. **Presidents' Day** - 3rd Monday in February
+4. **Memorial Day** - Last Monday in May
+5. **Juneteenth** - June 19
+6. **Independence Day** - July 4
+7. **Labor Day** - 1st Monday in September
+8. **Thanksgiving** - 4th Thursday in November
+9. **Christmas** - December 25
+
+If a holiday falls on a Saturday, it is observed on Friday. If it falls on a Sunday, it is observed on Monday.
+
+---
+
+## Approving New Employee Registrations
+
+When an employee registers through the app:
+1. You receive an email notification
+2. Go to **Pending Employee Registrations** from your dashboard
+3. Review their submitted information (name, email, position)
+4. Click **Approve** to add them to the system with default PTO balances
+5. Click **Deny** if the information is incorrect
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Can't see certain employees | Make sure you are logged in with the correct role. Clinical managers only see clinical staff. |
+| Employee balance seems wrong | Go to the employee profile, click the edit icon next to the balance, and adjust manually. |
+| PTO hours not deducted | Hours are only deducted when a request is approved. Check that the request status is "Approved." |
+| Call-out not showing | Verify the employee's phone number in their profile matches the number they texted from. |
+| Calendar not showing all events | Check that no filters are applied. Click "Clear" to reset filters. |
+| Employee can't submit request | Make sure they are selecting their name from the dropdown and filling in all required fields. |
 
 ---
 
 ## Quick Reference
 
-| Manager Task | What to Do |
-|--------------|------------|
-| Approve request | Click green checkmark on pending request |
-| Deny request | Click red X, type a reason |
-| Add employee | Go to Manage Employees → Add New Employee |
-| Edit employee | Click employee name → Edit |
-| See team calendar | Click Calendar in the menu |
-| Filter by position | Use dropdown on Employees page |
-| View call-out details | Click View Details on the call-out request |
-| Approve new registration | Go to Employee Registrations tab → Approve |
+| Task | How To |
+|------|--------|
+| Approve a request | Dashboard → Pending Requests → Click green Approve |
+| Deny a request | Dashboard → Pending Requests → Click red Deny |
+| Add an employee | Quick Actions → Add Employee |
+| Edit employee balance | Employee profile → Click pencil icon next to balance |
+| View team calendar | Navigation → Calendar, or Dashboard calendar |
+| Filter calendar | Use Team and Position dropdowns above calendar |
+| View employee history | Click employee name → see Request History |
+| Add PTO for employee | Employee profile → Request History → + Add PTO |
+| Log tardiness | Employee profile → Tardiness section → Add Record |
+| View manager manual | Quick Actions → Manager Manual |
 
 ---
 
-## Helpful Tips
-
-### How Time Off is Calculated
-
-- A full work day is **7.5 hours**
-- Weekends do not count as work days
-- Holidays do not count as work days
-
-For example, if someone asks for Monday through Friday off, that is 5 work days or 37.5 hours.
-
-### Holidays
-
-These days are holidays and do not count against time off:
-- New Year's Day
-- Martin Luther King Jr. Day
-- Presidents Day
-- Memorial Day
-- Juneteenth
-- Independence Day (July 4th)
-- Labor Day
-- Thanksgiving
-- Christmas
-
-### PTO Refresh
-
-Employee time off balances reset once a year on their refresh date. You can see and update refresh dates in the employee profile.
-
----
-
-## Getting Help
-
-If you have problems:
-
-1. **Forgot your password?** - Contact IT to reset it
-2. **Can't see certain employees?** - Make sure you're on the correct dashboard for their team
-3. **Employee balance seems wrong?** - Edit the employee profile to adjust
-
----
-
-*Last updated: January 2026*
+*Last updated: April 2026*
