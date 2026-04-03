@@ -59,11 +59,16 @@
         margin-bottom: 1rem;
     }
     @media print {
-        .back-btn, .navbar {
+        .back-btn, .navbar, .manual-actions, .no-print {
             display: none !important;
         }
         .manual-content {
             box-shadow: none;
+            padding: 0;
+        }
+        .container, .col-lg-10 {
+            max-width: 100% !important;
+            width: 100% !important;
         }
     }
 </style>
@@ -72,9 +77,14 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-10">
-        <a href="{{ url_for('index') }}" class="btn btn-outline-primary back-btn">
-            <i class="fas fa-arrow-left me-2"></i>Back to PTO Request Form
-        </a>
+        <div class="d-flex justify-content-between align-items-center mb-3 manual-actions">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i>Back
+            </a>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="fas fa-file-pdf me-2"></i>Download PDF
+            </button>
+        </div>
         <div class="manual-content">
             {{ content | safe }}
         </div>
