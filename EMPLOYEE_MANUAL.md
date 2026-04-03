@@ -1,7 +1,7 @@
 # Employee User Manual
 ## MSW CVI PTO Tracker
 
-**App URL: https://pto-app-eight.vercel.app**
+**App URL: https://pto-app.mswheart.com**
 
 ---
 
@@ -18,7 +18,7 @@ The PTO Tracker helps you manage your time off from work. This app lets you:
 
 **Step 1: Go to the website**
 
-Open your web browser and go to: **https://pto-app-eight.vercel.app**
+Open your web browser and go to: **https://pto-app.mswheart.com**
 
 **Step 2: Pick your team**
 
@@ -134,7 +134,7 @@ You will get emails when your request status changes.
 
 | Task | What to Do |
 |------|------------|
-| Ask for time off | Fill out the form at https://pto-app-eight.vercel.app |
+| Ask for time off | Fill out the form at https://pto-app.mswheart.com |
 | Ask for half day | Check "Partial day request" and enter times |
 | Call out sick today | Text **(516) 518-9564** with your name and reason |
 | New employee | Click "Register as new employee" on the form |

@@ -1,7 +1,7 @@
 # Manager Manual
 ## MSW CVI PTO Tracker
 
-**App URL: https://pto-app-eight.vercel.app**
+**App URL: https://pto-app.mswheart.com**
 
 ---
 
