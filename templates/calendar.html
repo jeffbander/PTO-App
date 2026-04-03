@@ -240,6 +240,22 @@
     border-left-color: #dc3545;
 }
 
+/* Holiday styling - pastel purple background cell */
+.fc-bg-event {
+    background-color: #e8dcf5 !important;
+    opacity: 1 !important;
+}
+
+/* Holiday text event - purple text, no background box */
+.holiday-event {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
+    color: #7c3aed !important;
+    font-size: 0.85rem !important;
+}
+
 </style>
 {% endblock %}
 
@@ -261,13 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/holidays')
         .then(response => response.json())
         .then(holidays => {
-            // Format holidays for display (not as background, as regular events)
-            holidayEvents = holidays.map(h => ({
-                ...h,
-                display: 'auto',  // Show as regular event, not background
-                textColor: '#ffffff'
-            }));
-            // Add holidays to calendar
+            holidayEvents = holidays;
             calendar.addEventSource(holidayEvents);
         })
         .catch(error => console.error('Error loading holidays:', error));
@@ -304,8 +314,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Check if this is a holiday event
             const isHoliday = info.event.extendedProps.is_holiday;
             if (isHoliday) {
-                info.el.setAttribute('title', info.event.title);
-                return; // Skip other processing for holidays
+                if (info.event.display !== 'background') {
+                    info.el.classList.add('holiday-event');
+                }
+                info.el.setAttribute('title', info.event.title || 'Holiday');
+                return;
             }
 
             // Add custom styling based on call-out or status

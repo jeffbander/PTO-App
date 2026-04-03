@@ -377,14 +377,29 @@ def get_holidays_for_calendar(year: int = None) -> List[Dict]:
             title = h['name']
             if h['observed']:
                 title += ' (Observed)'
+            # Background event for pastel purple cell coloring
+            holidays.append({
+                'id': f"holiday_bg_{h['date'].isoformat()}",
+                'start': h['date'].isoformat(),
+                'end': h['date'].isoformat(),
+                'display': 'background',
+                'color': '#e8dcf5',
+                'extendedProps': {
+                    'type': 'holiday',
+                    'is_holiday': True,
+                }
+            })
+            # Foreground event for the holiday name text
             holidays.append({
                 'id': f"holiday_{h['date'].isoformat()}",
                 'title': title,
                 'start': h['date'].isoformat(),
                 'end': h['date'].isoformat(),
-                'color': '#6f42c1',  # Purple for holidays
                 'allDay': True,
-                'display': 'background',  # Show as background event
+                'display': 'auto',
+                'color': 'transparent',
+                'textColor': '#7c3aed',
+                'borderColor': 'transparent',
                 'extendedProps': {
                     'type': 'holiday',
                     'is_holiday': True,

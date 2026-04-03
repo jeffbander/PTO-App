@@ -753,6 +753,8 @@
         z-index: 9999;
         min-width: 250px;
     }
+    .fc-bg-event { background-color: #e8dcf5 !important; opacity: 1 !important; }
+    .holiday-event { background: transparent !important; border: none !important; box-shadow: none !important; font-weight: 600 !important; color: #7c3aed !important; font-size: 0.85rem !important; }
 </style>
 {% endblock %}
 
@@ -1053,9 +1055,11 @@ function initializeCalendar() {
         },
         eventDidMount: function(info) {
             const props = info.event.extendedProps;
-            // Add tooltip - different format for holidays
             if (props.is_holiday) {
-                info.el.title = info.event.title;
+                if (info.event.display !== 'background') {
+                    info.el.classList.add('holiday-event');
+                }
+                info.el.title = info.event.title || 'Holiday';
             } else {
                 info.el.title = info.event.title + ' (' + props.status + ')';
             }
@@ -1067,14 +1071,7 @@ function initializeCalendar() {
     fetch('/api/holidays')
         .then(response => response.json())
         .then(holidays => {
-            // Format holidays for display (not as background, as regular events)
-            const holidayEvents = holidays.map(h => ({
-                ...h,
-                display: 'auto',  // Show as regular event, not background
-                textColor: '#ffffff'
-            }));
-            // Add holidays to calendar
-            calendar.addEventSource(holidayEvents);
+            calendar.addEventSource(holidays);
         })
         .catch(error => console.error('Error loading holidays:', error));
 

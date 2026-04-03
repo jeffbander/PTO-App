@@ -51,6 +51,8 @@
 .fc-toolbar-title { font-size: 1.3rem !important; font-weight: 700 !important; }
 .fc-today-button { background-color: #28a745 !important; border-color: #28a745 !important; font-weight: 600 !important; }
 .fc-today-button:hover { background-color: #218838 !important; border-color: #218838 !important; }
+.fc-bg-event { background-color: #e8dcf5 !important; opacity: 1 !important; }
+.holiday-event { background: transparent !important; border: none !important; box-shadow: none !important; font-weight: 600 !important; color: #7c3aed !important; font-size: 0.85rem !important; }
 
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
@@ -354,7 +356,10 @@ document.addEventListener('DOMContentLoaded', function() {
         dayMaxEvents: 3,
         eventDidMount: function(info) {
             if (info.event.extendedProps.is_holiday) {
-                info.el.setAttribute('title', info.event.title);
+                if (info.event.display !== 'background') {
+                    info.el.classList.add('holiday-event');
+                }
+                info.el.setAttribute('title', info.event.title || 'Holiday');
                 return;
             }
             const isCallOut = info.event.extendedProps.is_call_out;
@@ -377,11 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/holidays')
         .then(r => r.json())
         .then(holidays => {
-            calendar.addEventSource(holidays.map(h => ({
-                ...h,
-                display: 'auto',
-                textColor: '#ffffff'
-            })));
+            calendar.addEventSource(holidays);
         })
         .catch(err => console.error('Error loading holidays:', err));
 
