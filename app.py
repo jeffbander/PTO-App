@@ -128,7 +128,7 @@ def initialize_database():
             {
                 'name': 'Lauryn Padron',
                 'email': 'lauryn.padron@mountsinai.org',
-                'role': 'admin',
+                'role': 'superadmin',
                 'password': 'Carlostylermila5!'
             },
             {
