@@ -87,15 +87,6 @@
         <h5 class="mb-0">
             <i class="fas fa-calendar-check me-2"></i>PTO Schedule Calendar
         </h5>
-        <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-primary btn-sm" id="prevMonth">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button type="button" class="btn btn-outline-primary btn-sm" id="today">Today</button>
-            <button type="button" class="btn btn-outline-primary btn-sm" id="nextMonth">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
     </div>
     <div class="card-body">
         <div id="calendar"></div>
@@ -173,13 +164,38 @@
 }
 
 .fc-button-primary {
-    background-color: var(--sinai-primary);
-    border-color: var(--sinai-primary);
+    background-color: #1a1a2e !important;
+    border-color: #1a1a2e !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+    font-size: 0.95rem !important;
 }
 
 .fc-button-primary:hover {
-    background-color: var(--sinai-secondary);
-    border-color: var(--sinai-secondary);
+    background-color: #337ab7 !important;
+    border-color: #337ab7 !important;
+}
+
+.fc-button-primary:not(:disabled).fc-button-active {
+    background-color: #337ab7 !important;
+    border-color: #337ab7 !important;
+}
+
+.fc-toolbar-title {
+    font-size: 1.4rem !important;
+    font-weight: 700 !important;
+    color: #1a1a2e !important;
+}
+
+.fc-today-button {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    font-weight: 600 !important;
+}
+
+.fc-today-button:hover {
+    background-color: #218838 !important;
+    border-color: #218838 !important;
 }
 
 .fc-daygrid-event {
@@ -261,10 +277,10 @@ document.addEventListener('DOMContentLoaded', function() {
         height: 'auto',
         events: filteredEvents,
         headerToolbar: {
-            left: 'title',
-            center: '',
-            right: ''
-        }, // Show month/year title
+            left: 'prev,today,next',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+        },
         
         eventClick: function(info) {
             // Don't show modal for holidays
@@ -318,19 +334,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     calendar.render();
-    
-    // Custom navigation buttons
-    document.getElementById('prevMonth').addEventListener('click', function() {
-        calendar.prev();
-    });
-    
-    document.getElementById('nextMonth').addEventListener('click', function() {
-        calendar.next();
-    });
-    
-    document.getElementById('today').addEventListener('click', function() {
-        calendar.today();
-    });
     
     // Show event details in modal
     function showEventDetails(event) {
@@ -439,10 +442,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return teamMatch && positionMatch;
         });
         
-        // Remove all events and add filtered ones
+        // Remove all events and add filtered ones plus holidays
         calendar.removeAllEvents();
         calendar.addEventSource(filteredEvents);
-        
+        if (holidayEvents.length > 0) {
+            calendar.addEventSource(holidayEvents);
+        }
+
         // Update upcoming events panel
         populateUpcomingEvents();
     }

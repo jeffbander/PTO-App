@@ -40,6 +40,18 @@
 .status-pending { background-color: #ffc107 !important; border-color: #ffc107 !important; color: #000 !important; }
 .status-callout { background-color: #dc3545 !important; border-color: #dc3545 !important; }
 
+.fc-button-primary {
+    background-color: #1a1a2e !important;
+    border-color: #1a1a2e !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+}
+.fc-button-primary:hover { background-color: #337ab7 !important; border-color: #337ab7 !important; }
+.fc-button-primary:not(:disabled).fc-button-active { background-color: #337ab7 !important; border-color: #337ab7 !important; }
+.fc-toolbar-title { font-size: 1.3rem !important; font-weight: 700 !important; }
+.fc-today-button { background-color: #28a745 !important; border-color: #28a745 !important; font-weight: 600 !important; }
+.fc-today-button:hover { background-color: #218838 !important; border-color: #218838 !important; }
+
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 .quick-action-btn {
@@ -211,6 +223,7 @@
             <span class="d-flex align-items-center gap-1"><span class="legend-dot" style="background:#28a745;"></span> <small>Approved</small></span>
             <span class="d-flex align-items-center gap-1"><span class="legend-dot" style="background:#ffc107;"></span> <small>Pending</small></span>
             <span class="d-flex align-items-center gap-1"><span class="legend-dot" style="background:#dc3545;"></span> <small>Call Out</small></span>
+            <span class="d-flex align-items-center gap-1"><span class="legend-dot" style="background:#6f42c1;"></span> <small>Holiday</small></span>
         </div>
     </div>
     <div class="card-body">
@@ -334,12 +347,16 @@ document.addEventListener('DOMContentLoaded', function() {
         height: 'auto',
         events: calendarEvents,
         headerToolbar: {
-            left: 'prev,next today',
+            left: 'prev,today,next',
             center: 'title',
             right: 'dayGridMonth,dayGridWeek'
         },
         dayMaxEvents: 3,
         eventDidMount: function(info) {
+            if (info.event.extendedProps.is_holiday) {
+                info.el.setAttribute('title', info.event.title);
+                return;
+            }
             const isCallOut = info.event.extendedProps.is_call_out;
             const status = info.event.extendedProps.status;
             if (isCallOut) {
@@ -355,6 +372,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     calendar.render();
+
+    // Load holidays
+    fetch('/api/holidays')
+        .then(r => r.json())
+        .then(holidays => {
+            calendar.addEventSource(holidays.map(h => ({
+                ...h,
+                display: 'auto',
+                textColor: '#ffffff'
+            })));
+        })
+        .catch(err => console.error('Error loading holidays:', err));
 
     // Table filter tabs
     document.querySelectorAll('.tab-filter .nav-link').forEach(link => {
