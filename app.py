@@ -192,9 +192,22 @@ def initialize_database():
 
         db.session.commit()
 
-        # Sample employee and PTO request creation disabled - using real employee data
-        # To re-enable sample data, uncomment the code in this section
-        print("Database initialization complete (sample data creation disabled)")
+        # Clean up any non-Mount Sinai test accounts on every deploy
+        non_ms_members = TeamMember.query.filter(~TeamMember.email.ilike('%@mountsinai.org')).all()
+        if non_ms_members:
+            for m in non_ms_members:
+                PTORequest.query.filter_by(member_id=m.id).delete()
+                db.session.delete(m)
+            print(f"Cleaned up {len(non_ms_members)} non-Mount Sinai test accounts")
+
+        non_ms_managers = Manager.query.filter(~Manager.email.ilike('%@mountsinai.org')).all()
+        if non_ms_managers:
+            for m in non_ms_managers:
+                db.session.delete(m)
+            print(f"Cleaned up {len(non_ms_managers)} non-Mount Sinai manager accounts")
+
+        db.session.commit()
+        print("Database initialization complete")
 
 # Import and register routes
 from routes_simple import register_routes
