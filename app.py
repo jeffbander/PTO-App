@@ -189,6 +189,12 @@ def initialize_database():
                 'email': 'Stephen.Handzel@mountsinai.org',
                 'role': 'clinical',
                 'password': 'password#1'
+            },
+            {
+                'name': 'Samantha Mason',
+                'email': 'samantha.mason@mountsinai.org',
+                'role': 'admin',
+                'password': 'password#1'
             }
         ]
 
