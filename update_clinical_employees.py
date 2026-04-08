@@ -21,12 +21,12 @@ NEW_EMPLOYEES = [
     {"name": "Anthony Figueroa", "email": "Anthony.Figueroa@mountsinai.org", "phone": "9292953752", "position": "CVI MOAs"},
     {"name": "Chanelle Nieves", "email": "Chanelle.Nieves@mountsinai.org", "phone": "", "position": "CVI MOAs"},
 
-    # CVI Echo Techs
-    {"name": "Karina Vaysfeld", "email": "Karina.Vaysfeld@mountsinai.org", "phone": "9179741300", "position": "CVI Echo Techs"},
-    {"name": "Anna Alymova (Kloshka)", "email": "Anna.Kloshka@mountsinai.org", "phone": "6466420242", "position": "CVI Echo Techs"},
-    {"name": "Nancy Saldutto", "email": "Nancy.Saldutto@mountsinai.org", "phone": "8622235625", "position": "CVI Echo Techs"},
-    {"name": "Lisa Morris", "email": "Lisa.Morris@mountsinai.org", "phone": "3475562451", "position": "CVI Echo Techs"},
-    {"name": "Linda Pacheco", "email": "Linda.Pacheco@mountsinai.org", "phone": "3473200120", "position": "CVI Echo Techs"},
+    # Echo Techs
+    {"name": "Karina Vaysfeld", "email": "Karina.Vaysfeld@mountsinai.org", "phone": "9179741300", "position": "Echo Techs"},
+    {"name": "Anna Alymova (Kloshka)", "email": "Anna.Kloshka@mountsinai.org", "phone": "6466420242", "position": "Echo Techs"},
+    {"name": "Nancy Saldutto", "email": "Nancy.Saldutto@mountsinai.org", "phone": "8622235625", "position": "Echo Techs"},
+    {"name": "Lisa Morris", "email": "Lisa.Morris@mountsinai.org", "phone": "3475562451", "position": "Echo Techs"},
+    {"name": "Linda Pacheco", "email": "Linda.Pacheco@mountsinai.org", "phone": "3473200120", "position": "Echo Techs"},
 
     # 4th Floor Echo Techs
     {"name": "Ewa Sulewska-Korzeniecki", "email": "Ewa.SulewskaKorzeniecki@mountsinai.org", "phone": "", "position": "4th Floor Echo Techs"},

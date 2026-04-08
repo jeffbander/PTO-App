@@ -102,7 +102,6 @@ def initialize_database():
 
         # Initialize positions if they don't exist
         positions_to_create = [
-            {'name': 'APP', 'team': 'clinical'},
             {'name': 'RNs', 'team': 'clinical'},
             {'name': 'CVI MOAs', 'team': 'clinical'},
             {'name': 'Echo Techs', 'team': 'clinical'},
@@ -120,6 +119,36 @@ def initialize_database():
 
         # Migrate old admin positions to Secretary II
         migrate_admin_positions()
+
+        # Migrate deprecated positions to their correct names
+        position_renames = {
+            'CVI Echo Techs': 'Echo Techs',
+            'CVI RNs': 'RNs',
+        }
+        for old_name, new_name in position_renames.items():
+            old_pos = Position.query.filter_by(name=old_name).first()
+            if old_pos:
+                new_pos = Position.query.filter_by(name=new_name).first()
+                if new_pos:
+                    # Move employees to the existing correct position
+                    moved = TeamMember.query.filter_by(position_id=old_pos.id).update({'position_id': new_pos.id})
+                    db.session.delete(old_pos)
+                    print(f'Migrated {moved} employees from {old_name} to {new_name}')
+                else:
+                    # Just rename the position
+                    old_pos.name = new_name
+                    print(f'Renamed position {old_name} to {new_name}')
+
+        # Remove APP position and its employees
+        app_pos = Position.query.filter_by(name='APP').first()
+        if app_pos:
+            members = TeamMember.query.filter_by(position_id=app_pos.id).all()
+            for member in members:
+                PTORequest.query.filter_by(member_id=member.id).delete()
+                db.session.delete(member)
+            db.session.delete(app_pos)
+            print(f'Removed APP position ({len(members)} employees)')
+        db.session.commit()
 
         # Initialize default managers in Manager table
         from werkzeug.security import generate_password_hash
