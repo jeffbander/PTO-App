@@ -403,16 +403,7 @@
                                         {% if request.submitted_at %}
                                         <strong>{{ request.submitted_at.strftime('%m/%d/%Y') }}</strong>
                                         <br><small class="text-muted">
-                                            {% set days_ago = (now() - request.submitted_at).days %}
-                                            {% if days_ago == 0 %}
-                                                <i class="fas fa-clock text-warning"></i> Today
-                                            {% elif days_ago == 1 %}
-                                                <i class="fas fa-calendar-minus text-info"></i> Yesterday
-                                            {% elif days_ago <= 7 %}
-                                                <i class="fas fa-calendar text-secondary"></i> {{ days_ago }} days ago
-                                            {% else %}
-                                                <i class="fas fa-calendar-alt text-muted"></i> {{ days_ago }} days ago
-                                            {% endif %}
+                                            <i class="fas fa-clock"></i> {{ request.submitted_at.strftime('%I:%M %p') }}
                                         </small>
                                         {% endif %}
                                     </div>
