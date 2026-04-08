@@ -652,41 +652,190 @@ def register_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/team-calendar/position/<filter_type>')
+    def get_position_team_calendar(filter_type):
+        """API endpoint to get calendar events filtered by position group (echo/moa)"""
+        try:
+            if filter_type == 'echo':
+                positions = Position.query.filter(
+                    db.or_(Position.name.contains('Echo'), Position.name.contains('Vascular'))
+                ).all()
+            elif filter_type == 'moa':
+                positions = Position.query.filter(Position.name.contains('MOA')).all()
+            else:
+                return jsonify([])
+
+            pos_ids = [p.id for p in positions]
+            members = TeamMember.query.filter(TeamMember.position_id.in_(pos_ids)).all()
+            member_ids = [m.id for m in members]
+
+            requests = PTORequest.query.filter(
+                PTORequest.member_id.in_(member_ids),
+                PTORequest.status.in_(['approved', 'pending'])
+            ).all()
+
+            calendar_events = []
+            for request in requests:
+                if request.is_call_out:
+                    color = '#dc3545'
+                    text_color = '#fff'
+                elif request.status == 'approved':
+                    color = '#28a745'
+                    text_color = '#fff'
+                elif request.status == 'pending':
+                    color = '#ffc107'
+                    text_color = '#000'
+                else:
+                    color = '#6c757d'
+                    text_color = '#fff'
+
+                try:
+                    duration = request.duration_days
+                except:
+                    duration = 1
+
+                title = f"CALL OUT - {request.member.name}" if request.is_call_out else request.member.name
+
+                segments = _get_business_day_segments(request.start_date, request.end_date)
+                for idx, (seg_start, seg_end) in enumerate(segments):
+                    event = {
+                        'id': f'{request.id}-{idx}',
+                        'title': title,
+                        'start': seg_start,
+                        'end': seg_end,
+                        'color': color,
+                        'textColor': text_color,
+                        'allDay': True,
+                        'extendedProps': {
+                            'employee': request.member.name,
+                            'employee_position': request.member.position.name if request.member.position else '',
+                            'type': request.pto_type,
+                            'status': request.status,
+                            'is_call_out': request.is_call_out,
+                            'is_partial_day': request.is_partial_day,
+                            'duration': f"{duration} day{'s' if duration != 1 else ''}",
+                            'reason': request.reason or ''
+                        }
+                    }
+                    calendar_events.append(event)
+
+            return jsonify(calendar_events)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/dashboard/moa_supervisor')
     @roles_required('moa_supervisor', 'superadmin')
     def moa_supervisor_dashboard():
         """MOA Supervisor dashboard"""
+        from datetime import datetime, timedelta
+
         # Get MOA positions (positions with 'MOA' in the name)
         moa_positions = Position.query.filter(Position.name.contains('MOA')).all()
         moa_pos_ids = [p.id for p in moa_positions]
 
-        # Get MOA team members
-        moa_members = TeamMember.query.filter(TeamMember.position_id.in_(moa_pos_ids)).all()
-        moa_member_ids = [m.id for m in moa_members]
+        # Get MOA team members (excluding inactive)
+        team_employees = TeamMember.query.filter(
+            TeamMember.position_id.in_(moa_pos_ids),
+            ~TeamMember.name.contains('[INACTIVE]')
+        ).order_by(TeamMember.name).all()
+        moa_member_ids = [m.id for m in team_employees]
 
-        # Get all PTO requests from MOA team members
-        requests = PTORequest.query.filter(PTORequest.member_id.in_(moa_member_ids)).all()
+        # Get pending requests
+        pending_requests = PTORequest.query.filter(
+            PTORequest.member_id.in_(moa_member_ids),
+            PTORequest.status == 'pending'
+        ).all()
 
-        return render_template('dashboard_moa_supervisor.html', requests=requests)
+        # Get approved requests
+        approved_requests = PTORequest.query.filter(
+            PTORequest.member_id.in_(moa_member_ids),
+            PTORequest.status == 'approved'
+        ).all()
+
+        # Get in_progress requests
+        in_progress_requests = PTORequest.query.filter(
+            PTORequest.member_id.in_(moa_member_ids),
+            PTORequest.status == 'in_progress'
+        ).all()
+
+        # Get currently on PTO
+        today_str = get_eastern_time().strftime('%Y-%m-%d')
+        currently_on_pto = PTORequest.query.filter(
+            PTORequest.member_id.in_(moa_member_ids),
+            PTORequest.status == 'approved',
+            PTORequest.start_date <= today_str,
+            PTORequest.end_date >= today_str
+        ).all()
+
+        # Get pending employee registrations for clinical team (MOAs are clinical)
+        pending_employees = PendingEmployee.query.filter_by(status='pending', team='clinical').all()
+
+        return render_template('dashboard_moa_supervisor.html',
+                               requests=pending_requests,
+                               approved_requests=approved_requests,
+                               in_progress_requests=in_progress_requests,
+                               pending_employees=pending_employees,
+                               currently_on_pto=currently_on_pto,
+                               team_employees=team_employees,
+                               now=get_eastern_time)
 
     @app.route('/dashboard/echo_supervisor')
     @roles_required('echo_supervisor', 'superadmin')
     def echo_supervisor_dashboard():
         """Echo Supervisor dashboard"""
+        from datetime import datetime, timedelta
+
         # Get Echo Tech and Vascular Tech positions
         echo_positions = Position.query.filter(
             db.or_(Position.name.contains('Echo'), Position.name.contains('Vascular'))
         ).all()
         echo_pos_ids = [p.id for p in echo_positions]
 
-        # Get Echo Tech and Vascular Tech team members
-        echo_members = TeamMember.query.filter(TeamMember.position_id.in_(echo_pos_ids)).all()
-        echo_member_ids = [m.id for m in echo_members]
+        # Get Echo Tech and Vascular Tech team members (excluding inactive)
+        team_employees = TeamMember.query.filter(
+            TeamMember.position_id.in_(echo_pos_ids),
+            ~TeamMember.name.contains('[INACTIVE]')
+        ).order_by(TeamMember.name).all()
+        echo_member_ids = [m.id for m in team_employees]
 
-        # Get all PTO requests from Echo Tech and Vascular Tech team members
-        requests = PTORequest.query.filter(PTORequest.member_id.in_(echo_member_ids)).all()
+        # Get pending requests
+        pending_requests = PTORequest.query.filter(
+            PTORequest.member_id.in_(echo_member_ids),
+            PTORequest.status == 'pending'
+        ).all()
 
-        return render_template('dashboard_echo_supervisor.html', requests=requests)
+        # Get approved requests
+        approved_requests = PTORequest.query.filter(
+            PTORequest.member_id.in_(echo_member_ids),
+            PTORequest.status == 'approved'
+        ).all()
+
+        # Get in_progress requests
+        in_progress_requests = PTORequest.query.filter(
+            PTORequest.member_id.in_(echo_member_ids),
+            PTORequest.status == 'in_progress'
+        ).all()
+
+        # Get currently on PTO
+        today_str = get_eastern_time().strftime('%Y-%m-%d')
+        currently_on_pto = PTORequest.query.filter(
+            PTORequest.member_id.in_(echo_member_ids),
+            PTORequest.status == 'approved',
+            PTORequest.start_date <= today_str,
+            PTORequest.end_date >= today_str
+        ).all()
+
+        # Get pending employee registrations for clinical team (Echo techs are clinical)
+        pending_employees = PendingEmployee.query.filter_by(status='pending', team='clinical').all()
+
+        return render_template('dashboard_echo_supervisor.html',
+                               requests=pending_requests,
+                               approved_requests=approved_requests,
+                               in_progress_requests=in_progress_requests,
+                               pending_employees=pending_employees,
+                               currently_on_pto=currently_on_pto,
+                               team_employees=team_employees,
+                               now=get_eastern_time)
 
     @app.route('/employees')
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
