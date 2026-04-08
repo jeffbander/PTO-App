@@ -39,6 +39,7 @@ def run_migrations():
     migrations = [
         ('users', 'starting_pto_hours', 'NUMERIC(5,2)', '60.0'),
         ('users', 'starting_sick_hours', 'NUMERIC(5,2)', '60.0'),
+        ('users', 'pto_blocked', 'BOOLEAN', 'FALSE'),
     ]
 
     try:

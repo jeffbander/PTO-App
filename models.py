@@ -27,6 +27,7 @@ class User(db.Model):
     starting_pto_hours = Column(Numeric(5,2), default=60.0)  # Annual PTO allocation (starting balance)
     starting_sick_hours = Column(Numeric(5,2), default=60.0)  # Annual sick time allocation (starting balance)
     pto_refresh_date = Column(Date, default=datetime(2025, 1, 1).date())    # Annual refresh date
+    pto_blocked = Column(Boolean, default=False)  # If True, employee can only submit call-outs, not PTO
     created_at = Column(DateTime, default=get_eastern_time)
     
     def __init__(self, name=None, email=None, **kwargs):

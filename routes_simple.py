@@ -397,6 +397,11 @@ def register_routes(app):
                 flash(f'Employee {name} not found in {team} team', 'error')
                 return redirect(url_for('index'))
 
+            # Block RNs from submitting PTO (call-outs still allowed)
+            if position == 'RNs' and not call_out_flag:
+                flash('Cannot submit PTO request. Please use paper form and submit manually to your nurse manager.', 'error')
+                return redirect(url_for('index'))
+
             # Server-side validation for call-out requests
             if call_out_flag:
                 if pto_type != 'Sick':
