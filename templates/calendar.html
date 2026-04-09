@@ -110,7 +110,7 @@
 .fc .fc-toolbar { margin-bottom: 16px !important; }
 
 /* Events */
-.fc-event { cursor: pointer; border-radius: 4px; }
+.fc-event { cursor: {% if is_logged_in %}pointer{% else %}default{% endif %}; border-radius: 4px; }
 .fc-daygrid-event { padding: 2px 4px; }
 .status-approved { background-color: #28a745 !important; border-color: #28a745 !important; }
 .status-pending { background-color: #ffc107 !important; border-color: #ffc107 !important; color: #000 !important; }
@@ -136,6 +136,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
     const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+    const isLoggedIn = {{ is_logged_in|tojson }};
 
     // Calendar events data from Flask
     const allEvents = {{ calendar_events|tojson|safe }};
@@ -166,13 +167,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (info.event.extendedProps.is_holiday) {
                 return;
             }
+            // Only logged-in users can view full request details
+            if (!isLoggedIn) {
+                return;
+            }
             showEventDetails(info.event);
         },
         
         eventMouseEnter: function(info) {
-            info.el.style.opacity = '0.8';
+            if (isLoggedIn && !info.event.extendedProps.is_holiday) {
+                info.el.style.opacity = '0.8';
+            }
         },
-        
+
         eventMouseLeave: function(info) {
             info.el.style.opacity = '1';
         },

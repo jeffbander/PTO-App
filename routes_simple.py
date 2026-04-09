@@ -456,7 +456,9 @@ def register_routes(app):
 
     @app.route('/calendar')
     def calendar():
-        """Calendar view of PTO requests"""
+        """Calendar view of PTO requests - viewable by anyone; detail modal requires login"""
+        is_logged_in = 'user_id' in session
+
         # Get all PTO requests (approved and pending) for calendar display
         all_requests = PTORequest.query.filter(
             PTORequest.status.in_(['approved', 'pending'])
@@ -517,7 +519,10 @@ def register_routes(app):
                 }
                 calendar_events.append(event)
 
-        return render_template('calendar.html', requests=all_requests, calendar_events=calendar_events)
+        return render_template('calendar.html',
+                               requests=all_requests,
+                               calendar_events=calendar_events,
+                               is_logged_in=is_logged_in)
 
     @app.route('/api/test-business-days')
     def test_business_days():
