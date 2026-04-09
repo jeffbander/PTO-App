@@ -3,7 +3,7 @@ import logging
 from flask import Flask, send_from_directory
 from werkzeug.middleware.proxy_fix import ProxyFix
 from database import db
-from models import User, TeamMember, PTORequest, Manager, Position
+from models import User, TeamMember, PTORequest, Manager, Position, CallOutRecord
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -36,33 +36,83 @@ def run_migrations():
     from sqlalchemy import text, inspect
 
     # List of migrations: (table, column, type, default)
+    # Use None for `default` to skip the DEFAULT clause.
     migrations = [
         ('users', 'starting_pto_hours', 'NUMERIC(5,2)', '60.0'),
         ('users', 'starting_sick_hours', 'NUMERIC(5,2)', '60.0'),
         ('users', 'pto_blocked', 'BOOLEAN', 'FALSE'),
+        ('pto_requests', 'callout_classification', 'VARCHAR(10)', None),
     ]
 
     try:
         inspector = inspect(db.engine)
-        existing_columns = {col['name'] for col in inspector.get_columns('users')}
     except Exception as e:
         print(f'Could not inspect database: {e}')
-        existing_columns = set()
+        return
+
+    # Cache column lookups per table
+    columns_by_table = {}
+    def cols_for(table_name):
+        if table_name not in columns_by_table:
+            try:
+                columns_by_table[table_name] = {c['name'] for c in inspector.get_columns(table_name)}
+            except Exception:
+                columns_by_table[table_name] = set()
+        return columns_by_table[table_name]
 
     for table, column, col_type, default in migrations:
-        if column in existing_columns:
+        if column in cols_for(table):
             print(f'Column {column} already exists in {table}')
             continue
 
+        default_clause = f' DEFAULT {default}' if default is not None else ''
+        sql = f'ALTER TABLE {table} ADD COLUMN {column} {col_type}{default_clause}'
         try:
-            db.session.execute(text(
-                f'ALTER TABLE {table} ADD COLUMN {column} {col_type} DEFAULT {default}'
-            ))
+            db.session.execute(text(sql))
             db.session.commit()
             print(f'Added column {column} to {table}')
+            # Invalidate cache for this table so later migrations see the new column
+            columns_by_table.pop(table, None)
         except Exception as e:
             db.session.rollback()
             print(f'Could not add column {column} to {table}: {e}')
+
+
+def backfill_callout_classifications():
+    """Classify any existing call-outs that don't have a classification yet."""
+    from call_out_classifier import classify_call_out
+
+    try:
+        unclassified = PTORequest.query.filter(
+            PTORequest.is_call_out == True,  # noqa: E712
+            PTORequest.callout_classification.is_(None)
+        ).all()
+    except Exception as e:
+        print(f'Could not query for unclassified call-outs: {e}')
+        return
+
+    if not unclassified:
+        return
+
+    count = 0
+    for req in unclassified:
+        # Prefer the SMS message text from CallOutRecord; fall back to PTORequest.reason.
+        call_out_record = CallOutRecord.query.filter_by(pto_request_id=req.id).first()
+        text = None
+        if call_out_record and call_out_record.message_text:
+            text = call_out_record.message_text
+        elif req.reason:
+            text = req.reason
+
+        req.callout_classification = classify_call_out(text)
+        count += 1
+
+    try:
+        db.session.commit()
+        print(f'Backfilled callout_classification for {count} call-out(s)')
+    except Exception as e:
+        db.session.rollback()
+        print(f'Could not backfill call-out classifications: {e}')
 
 def migrate_admin_positions():
     """Migrate old admin positions (Front Desk, CT Desk, etc.) to Secretary II"""
@@ -243,6 +293,11 @@ def initialize_database():
             print(f"Cleaned up {len(non_ms_managers)} non-Mount Sinai manager accounts")
 
         db.session.commit()
+
+        # Classify any call-outs missing a classification (runs once on first deploy,
+        # then no-ops on subsequent restarts since rows already have a value).
+        backfill_callout_classifications()
+
         print("Database initialization complete")
 
 # Import and register routes

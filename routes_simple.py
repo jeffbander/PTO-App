@@ -412,6 +412,12 @@ def register_routes(app):
                     flash('Please provide a reason for calling out sick.', 'error')
                     return redirect(url_for('index'))
 
+            # Classify call-outs as sick or fmla based on the reason text
+            callout_classification = None
+            if call_out_flag:
+                from call_out_classifier import classify_call_out
+                callout_classification = classify_call_out(reason)
+
             # Create PTO request with proper member relationship
             # Call-outs are auto-approved, regular PTO is pending
             pto_request = PTORequest(
@@ -422,7 +428,8 @@ def register_routes(app):
                 reason=reason,
                 manager_team=team,
                 is_call_out=call_out_flag,
-                status='approved' if call_out_flag else 'pending'
+                status='approved' if call_out_flag else 'pending',
+                callout_classification=callout_classification
             )
 
             db.session.add(pto_request)
@@ -986,6 +993,27 @@ def register_routes(app):
             completed_callout_days = sum(r.duration_days for r in completed_callouts)
             completed_callout_hours = completed_callout_days * 7.5
 
+            # Per-type breakdown for Completed (past) section
+            completed_approved = [r for r in pto_requests if r.status == 'approved' and r.end_date <= today_str]
+
+            def _bucket(requests_list):
+                count = len(requests_list)
+                days = sum(r.duration_days for r in requests_list)
+                return {
+                    'count': count,
+                    'days': round(days, 1),
+                    'hours': round(days * 7.5, 1),
+                }
+
+            type_breakdown = {
+                'vacation': _bucket([r for r in completed_approved if not r.is_call_out and r.pto_type == 'Vacation']),
+                'personal': _bucket([r for r in completed_approved if not r.is_call_out and r.pto_type == 'Personal']),
+                'sick_regular': _bucket([r for r in completed_approved if not r.is_call_out and r.pto_type == 'Sick']),
+                'sick_callout': _bucket([r for r in completed_approved if r.is_call_out and (r.callout_classification or 'sick') == 'sick']),
+                'fmla_callout': _bucket([r for r in completed_approved if r.is_call_out and r.callout_classification == 'fmla']),
+                'union_business': _bucket([r for r in completed_approved if not r.is_call_out and r.pto_type == 'Union Business']),
+            }
+
             # ALL APPROVED: all approved requests regardless of date
             all_pto = [r for r in pto_requests if r.status == 'approved' and not r.is_call_out and r.pto_type != 'Sick']
             all_sick = [r for r in pto_requests if r.status == 'approved' and r.pto_type == 'Sick' and not r.is_call_out]
@@ -1038,7 +1066,8 @@ def register_routes(app):
                 'all_callout_hours': round(all_callout_hours, 1),
                 'days_until_refresh': days_until_refresh,
                 'total_tardiness': total_tardiness,
-                'total_tardiness_minutes': total_tardiness_minutes
+                'total_tardiness_minutes': total_tardiness_minutes,
+                'type_breakdown': type_breakdown,
             }
 
             return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats, tardiness_records=tardiness_records)
@@ -1192,6 +1221,29 @@ def register_routes(app):
 
         return jsonify({'success': True, 'message': 'Tardiness record deleted'})
 
+    @app.route('/api/request/<int:request_id>/classify-callout', methods=['POST'])
+    @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
+    def classify_callout(request_id):
+        """Manager-only: update a call-out's classification (sick or fmla)."""
+        data = request.get_json() or {}
+        classification = data.get('classification')
+
+        if classification not in ('sick', 'fmla'):
+            return jsonify({'success': False, 'message': 'Invalid classification'}), 400
+
+        pto_request = PTORequest.query.get(request_id)
+        if not pto_request:
+            return jsonify({'success': False, 'message': 'Request not found'}), 404
+
+        if not pto_request.is_call_out:
+            return jsonify({'success': False, 'message': 'Not a call-out request'}), 400
+
+        pto_request.callout_classification = classification
+        pto_request.updated_at = get_eastern_time()
+        db.session.commit()
+
+        return jsonify({'success': True, 'classification': classification})
+
     @app.route('/employee/edit/<int:employee_id>', methods=['GET', 'POST'])
     @roles_required('admin', 'clinical', 'superadmin')
     def edit_employee(employee_id):
@@ -1324,6 +1376,12 @@ def register_routes(app):
             # Determine manager team from employee's position
             manager_team = employee.team or 'admin'
 
+            # Classify call-outs as sick or fmla based on the reason text
+            callout_classification = None
+            if is_call_out:
+                from call_out_classifier import classify_call_out
+                callout_classification = classify_call_out(reason)
+
             # Create PTO request
             # Call-outs are auto-approved, regular PTO is pending
             pto_request = PTORequest(
@@ -1337,7 +1395,8 @@ def register_routes(app):
                 is_partial_day=is_partial_day,
                 start_time=start_time if is_partial_day else None,
                 end_time=end_time if is_partial_day else None,
-                status='approved' if is_call_out else 'pending'
+                status='approved' if is_call_out else 'pending',
+                callout_classification=callout_classification
             )
 
             db.session.add(pto_request)

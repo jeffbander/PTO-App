@@ -224,7 +224,8 @@ class PTORequest(db.Model):
 
     # Call Out tracking
     is_call_out = Column(Boolean, default=False)  # True for call-out (today only) requests
-    
+    callout_classification = Column(String(10))  # 'sick' or 'fmla' (only meaningful when is_call_out=True)
+
     # Workflow tracking
     timekeeping_entered = Column(Boolean, default=False)  # Checkbox for timekeeping
     coverage_arranged = Column(Boolean, default=False)  # Checkbox for coverage

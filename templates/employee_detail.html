@@ -330,7 +330,7 @@
                 </div>
             </div>
 
-            <!-- Completed (Past Dates) -->
+            <!-- Completed (Past Dates) — per-type breakdown -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header py-2 px-3" style="background-color: #1a5632; color: #fff;">
                     <span class="fw-semibold d-flex align-items-center gap-2" style="font-size: 0.875rem;">
@@ -338,19 +338,55 @@
                         Completed (Past)
                     </span>
                 </div>
-                <div class="card-body py-2">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted" style="font-size: 0.85rem;">PTO:</span>
-                        <span class="fw-medium">{{ stats.completed_pto_days }} days ({{ stats.completed_pto_hours }} hrs)</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted" style="font-size: 0.85rem;">Sick:</span>
-                        <span class="fw-medium">{{ stats.completed_sick_days }} days ({{ stats.completed_sick_hours }} hrs)</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted" style="font-size: 0.85rem;">Call-Outs:</span>
-                        <span class="fw-medium text-danger">{{ stats.completed_callout_days }} days ({{ stats.completed_callout_hours }} hrs)</span>
-                    </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0" style="font-size: 0.8rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="py-1 px-2 fw-medium">Type</th>
+                                <th class="py-1 px-2 fw-medium text-center">Reqs</th>
+                                <th class="py-1 px-2 fw-medium text-end">Days</th>
+                                <th class="py-1 px-2 fw-medium text-end">Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="py-1 px-2">Vacation</td>
+                                <td class="py-1 px-2 text-center">{{ stats.type_breakdown.vacation.count }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.vacation.days }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.vacation.hours }}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 px-2">Personal</td>
+                                <td class="py-1 px-2 text-center">{{ stats.type_breakdown.personal.count }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.personal.days }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.personal.hours }}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 px-2">Sick (regular)</td>
+                                <td class="py-1 px-2 text-center">{{ stats.type_breakdown.sick_regular.count }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.sick_regular.days }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.sick_regular.hours }}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 px-2">Sick (call-out)</td>
+                                <td class="py-1 px-2 text-center">{{ stats.type_breakdown.sick_callout.count }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.sick_callout.days }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.sick_callout.hours }}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 px-2">FMLA (call-out)</td>
+                                <td class="py-1 px-2 text-center">{{ stats.type_breakdown.fmla_callout.count }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.fmla_callout.days }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.fmla_callout.hours }}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 px-2">Union Business</td>
+                                <td class="py-1 px-2 text-center">{{ stats.type_breakdown.union_business.count }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.union_business.days }}</td>
+                                <td class="py-1 px-2 text-end">{{ stats.type_breakdown.union_business.hours }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -434,6 +470,20 @@
                                                 <span class="badge text-white" style="font-size: 0.75rem; background-color: #dc3545;">
                                                     <i class="fas fa-exclamation-circle me-1"></i>CALL OUT
                                                 </span>
+                                                {% set classification = request.callout_classification or 'sick' %}
+                                                {% if session.user_role in ['admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor'] %}
+                                                    <select class="form-select form-select-sm d-inline-block ms-1 callout-classification-select"
+                                                            style="font-size: 0.7rem; width: auto; padding: 0.1rem 1.4rem 0.1rem 0.4rem;"
+                                                            data-request-id="{{ request.id }}"
+                                                            title="Classify this call-out">
+                                                        <option value="sick" {% if classification == 'sick' %}selected{% endif %}>Sick</option>
+                                                        <option value="fmla" {% if classification == 'fmla' %}selected{% endif %}>FMLA</option>
+                                                    </select>
+                                                {% else %}
+                                                    <span class="badge ms-1" style="font-size: 0.7rem; background-color: {% if classification == 'fmla' %}#7c3aed{% else %}#e0f2fe{% endif %}; color: {% if classification == 'fmla' %}#fff{% else %}#0369a1{% endif %};">
+                                                        {{ 'FMLA' if classification == 'fmla' else 'Sick' }}
+                                                    </span>
+                                                {% endif %}
                                             {% else %}
                                                 <span class="badge" style="font-size: 0.75rem; background-color: #e0f2fe; color: #0369a1;">
                                                     {{ request.pto_type }}
@@ -1084,6 +1134,35 @@ function initializeCalendar() {
 }
 
 // Tardiness form handling
+// Manager-only: change call-out classification (Sick / FMLA)
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.callout-classification-select').forEach(sel => {
+        sel.dataset.originalValue = sel.value;
+        sel.addEventListener('change', async function() {
+            const requestId = this.dataset.requestId;
+            const classification = this.value;
+            try {
+                const response = await fetch(`/api/request/${requestId}/classify-callout`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({classification: classification})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    // Reload so stats recalculate
+                    window.location.reload();
+                } else {
+                    alert('Failed to update: ' + (data.message || 'Unknown error'));
+                    this.value = this.dataset.originalValue;
+                }
+            } catch (err) {
+                alert('Error updating classification: ' + err.message);
+                this.value = this.dataset.originalValue;
+            }
+        });
+    });
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     const tardinessForm = document.getElementById('tardinessForm');
     if (tardinessForm) {

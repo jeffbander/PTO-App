@@ -114,6 +114,10 @@ class TwilioSMSService:
             # Extract reason from SMS
             reason = self.extract_reason(message_body)
 
+            # Classify the call-out as sick or fmla based on the raw SMS body
+            from call_out_classifier import classify_call_out
+            classification = classify_call_out(message_body)
+
             # Create PTO request for today only (Sick, call-out)
             # Auto-approve call-outs (no manager approval needed)
             pto_request = PTORequest(
@@ -125,7 +129,8 @@ class TwilioSMSService:
                 status='approved',  # Auto-approve call-outs
                 is_call_out=True,
                 reason=f"Call-out via SMS: {reason}",
-                approved_date=get_eastern_time()
+                approved_date=get_eastern_time(),
+                callout_classification=classification
             )
 
             db.session.add(pto_request)
