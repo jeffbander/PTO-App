@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}SMS Recipients - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-sms me-2"></i>Call-Out SMS Recipients
+        </h2>
+        <p class="text-muted mb-0">
+            These phone numbers receive a text message whenever an employee texts in a call-out.
+            Recipients only get texts for their assigned team.
+        </p>
+    </div>
+</div>
+
+<!-- Add Recipient Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-plus me-2"></i>Add Recipient
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('add_sms_recipient') }}" class="row g-3">
+            <div class="col-md-4">
+                <label for="name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="name" name="name" required
+                       placeholder="e.g. Stephen Hendel">
+            </div>
+            <div class="col-md-3">
+                <label for="phone" class="form-label">Phone Number</label>
+                <input type="text" class="form-control" id="phone" name="phone" required
+                       placeholder="e.g. 5165559999">
+                <small class="form-text text-muted">10 digits, any format</small>
+            </div>
+            <div class="col-md-3">
+                <label for="team" class="form-label">Receives Texts For</label>
+                <select class="form-select" id="team" name="team" required>
+                    <option value="">Select team...</option>
+                    <option value="admin">Admin team only</option>
+                    <option value="clinical">Clinical team only</option>
+                    <option value="both">Both teams</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-success w-100">
+                    <i class="fas fa-plus me-2"></i>Add
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Recipients Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>Current Recipients ({{ recipients|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if recipients %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Team</th>
+                        <th>Status</th>
+                        <th>Added</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in recipients %}
+                    <tr class="{% if not r.active %}table-secondary{% endif %}">
+                        <td><strong>{{ r.name }}</strong></td>
+                        <td>{{ r.phone }}</td>
+                        <td>
+                            {% if r.team == 'admin' %}
+                                <span class="badge bg-secondary">Admin</span>
+                            {% elif r.team == 'clinical' %}
+                                <span class="badge bg-primary">Clinical</span>
+                            {% else %}
+                                <span class="badge bg-dark">Both</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if r.active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Paused</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ r.created_at.strftime('%Y-%m-%d') if r.created_at else '-' }}
+                            </small>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <form method="POST"
+                                      action="{{ url_for('toggle_sms_recipient', recipient_id=r.id) }}"
+                                      style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning"
+                                            title="{{ 'Pause' if r.active else 'Resume' }}">
+                                        {% if r.active %}
+                                            <i class="fas fa-pause"></i> Pause
+                                        {% else %}
+                                            <i class="fas fa-play"></i> Resume
+                                        {% endif %}
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="confirmDelete({{ r.id }}, '{{ r.name|e }}', '{{ r.phone|e }}')">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-mobile-alt fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No recipients configured</h5>
+            <p class="text-muted">Add a recipient above so managers receive call-out texts.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Remove</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Remove <strong id="deleteName"></strong> (<span id="deletePhone"></span>)
+                   from SMS notifications?</p>
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    If you want to keep them for later, use <strong>Pause</strong> instead.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" id="deleteForm" style="display:inline;">
+                    <button type="submit" class="btn btn-danger">Remove</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function confirmDelete(id, name, phone) {
+    document.getElementById('deleteName').textContent = name;
+    document.getElementById('deletePhone').textContent = phone;
+    document.getElementById('deleteForm').action = `/sms-recipients/${id}/delete`;
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

@@ -442,3 +442,30 @@ class TardinessRecord(db.Model):
 
     def __repr__(self):
         return f'<TardinessRecord {self.id} - {self.member.name if self.member else "Unknown"} - {self.date}>'
+
+class SMSRecipient(db.Model):
+    """Phone numbers that receive call-out SMS notifications"""
+    __tablename__ = 'sms_recipients'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    phone = Column(String(20), nullable=False)
+    team = Column(String(20), nullable=False)  # 'admin', 'clinical', or 'both'
+    active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=get_eastern_time)
+
+    def __repr__(self):
+        return f'<SMSRecipient {self.name} {self.phone} team={self.team} active={self.active}>'
+
+    @staticmethod
+    def normalize_phone(raw):
+        """Normalize a phone number to +1XXXXXXXXXX format"""
+        if not raw:
+            return ''
+        digits = ''.join(ch for ch in raw if ch.isdigit())
+        if len(digits) == 10:
+            return f'+1{digits}'
+        if len(digits) == 11 and digits.startswith('1'):
+            return f'+{digits}'
+        # Fall back to original if unexpected length
+        return raw.strip()

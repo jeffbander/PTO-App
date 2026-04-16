@@ -73,30 +73,27 @@ def register_twilio_routes(app):
                 request_id=pto_request.id
             )
 
-            # Optionally send SMS to manager (if configured)
-            import os
-            from dotenv import load_dotenv
-            load_dotenv(override=True)  # Reload .env to get latest values
-
+            # Look up active SMS recipients for this employee's team from the DB
+            from models import SMSRecipient
             manager_team = member.position.team if member.position else None
-            manager_sms_raw = None
+            recipients = []
+            if manager_team in ('admin', 'clinical'):
+                recipients = SMSRecipient.query.filter(
+                    SMSRecipient.active == True,
+                    SMSRecipient.team.in_([manager_team, 'both'])
+                ).all()
 
-            if manager_team == 'admin':
-                manager_sms_raw = os.getenv('MANAGER_ADMIN_SMS')
-            elif manager_team == 'clinical':
-                manager_sms_raw = os.getenv('MANAGER_CLINICAL_SMS')
+            logger.info(
+                f"Manager team: {manager_team}, "
+                f"recipients: {[r.phone for r in recipients]}"
+            )
 
-            logger.info(f"Manager team: {manager_team}, Manager SMS: {manager_sms_raw}")
-
-            if manager_sms_raw and manager_sms_raw.strip():
-                # Support multiple comma-separated phone numbers
-                manager_numbers = [n.strip() for n in manager_sms_raw.split(',') if n.strip()]
-                for manager_sms in manager_numbers:
-                    sms_service.send_manager_notification_sms(
-                        manager_sms,
-                        member.name,
-                        pto_request.id
-                    )
+            for recipient in recipients:
+                sms_service.send_manager_notification_sms(
+                    recipient.phone,
+                    member.name,
+                    pto_request.id
+                )
 
             # Generate empty TwiML response (SMS already sent via API)
             twiml_response = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'

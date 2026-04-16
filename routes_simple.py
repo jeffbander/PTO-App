@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from database import db
-from models import PTORequest, TeamMember, Manager, User, PendingEmployee, Position, TardinessRecord
+from models import PTORequest, TeamMember, Manager, User, PendingEmployee, Position, TardinessRecord, SMSRecipient
 from pto_system import PTOTrackerSystem
 from auth import roles_required, authenticate_user, login_user, logout_user, get_current_user
 from datetime import datetime, timedelta
@@ -1865,6 +1865,70 @@ def register_routes(app):
             return redirect(url_for('dashboard'))
 
         return render_template('change_password.html')
+
+    # ========================================
+    # SMS RECIPIENTS MANAGEMENT
+    # ========================================
+
+    @app.route('/sms-recipients')
+    @roles_required('superadmin')
+    def sms_recipients():
+        """List all SMS recipients for call-out notifications"""
+        recipients = SMSRecipient.query.order_by(
+            SMSRecipient.team, SMSRecipient.name
+        ).all()
+        return render_template('sms_recipients.html', recipients=recipients)
+
+    @app.route('/sms-recipients/add', methods=['POST'])
+    @roles_required('superadmin')
+    def add_sms_recipient():
+        """Add a new SMS recipient"""
+        name = (request.form.get('name') or '').strip()
+        phone_raw = (request.form.get('phone') or '').strip()
+        team = (request.form.get('team') or '').strip()
+
+        if not name or not phone_raw or team not in ('admin', 'clinical', 'both'):
+            flash('Name, phone, and team are all required.', 'error')
+            return redirect(url_for('sms_recipients'))
+
+        phone = SMSRecipient.normalize_phone(phone_raw)
+        digits = ''.join(ch for ch in phone if ch.isdigit())
+        if len(digits) < 10:
+            flash('Phone number must be at least 10 digits.', 'error')
+            return redirect(url_for('sms_recipients'))
+
+        existing = SMSRecipient.query.filter_by(phone=phone, team=team).first()
+        if existing:
+            flash(f'{phone} is already listed for the {team} team.', 'error')
+            return redirect(url_for('sms_recipients'))
+
+        recipient = SMSRecipient(name=name, phone=phone, team=team, active=True)
+        db.session.add(recipient)
+        db.session.commit()
+        flash(f'Added {name} ({phone}) to {team} notifications.', 'success')
+        return redirect(url_for('sms_recipients'))
+
+    @app.route('/sms-recipients/<int:recipient_id>/toggle', methods=['POST'])
+    @roles_required('superadmin')
+    def toggle_sms_recipient(recipient_id):
+        """Toggle active status (pause/resume) for a recipient"""
+        recipient = SMSRecipient.query.get_or_404(recipient_id)
+        recipient.active = not recipient.active
+        db.session.commit()
+        state = 'resumed' if recipient.active else 'paused'
+        flash(f'{recipient.name} {state}.', 'success')
+        return redirect(url_for('sms_recipients'))
+
+    @app.route('/sms-recipients/<int:recipient_id>/delete', methods=['POST'])
+    @roles_required('superadmin')
+    def delete_sms_recipient(recipient_id):
+        """Permanently remove a recipient"""
+        recipient = SMSRecipient.query.get_or_404(recipient_id)
+        name = recipient.name
+        db.session.delete(recipient)
+        db.session.commit()
+        flash(f'Removed {name} from SMS notifications.', 'success')
+        return redirect(url_for('sms_recipients'))
 
     @app.errorhandler(404)
     def not_found_error(error):

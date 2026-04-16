@@ -3,7 +3,7 @@ import logging
 from flask import Flask, send_from_directory
 from werkzeug.middleware.proxy_fix import ProxyFix
 from database import db
-from models import User, TeamMember, PTORequest, Manager, Position, CallOutRecord
+from models import User, TeamMember, PTORequest, Manager, Position, CallOutRecord, SMSRecipient
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -140,6 +140,47 @@ def migrate_admin_positions():
             print(f'Deleted old position: {old_name}')
 
     db.session.commit()
+
+def seed_sms_recipients_from_env():
+    """On first deploy of the SMS-recipients feature, seed the table from the legacy
+    MANAGER_ADMIN_SMS / MANAGER_CLINICAL_SMS env vars. No-ops once the table has any rows.
+    The number 6465565559 is explicitly excluded."""
+    excluded = {'6465565559', '+16465565559', '16465565559'}
+
+    try:
+        if SMSRecipient.query.count() > 0:
+            return
+    except Exception as e:
+        print(f'Could not check sms_recipients: {e}')
+        return
+
+    admin_raw = os.environ.get('MANAGER_ADMIN_SMS', '')
+    clinical_raw = os.environ.get('MANAGER_CLINICAL_SMS', '')
+
+    def _digits(s):
+        return ''.join(ch for ch in (s or '') if ch.isdigit())
+
+    entries = []
+    for phone in [p.strip() for p in admin_raw.split(',') if p.strip()]:
+        if _digits(phone) in excluded or phone in excluded:
+            print(f'Skipping excluded SMS number: {phone}')
+            continue
+        entries.append(('Admin Manager', phone, 'admin'))
+    for phone in [p.strip() for p in clinical_raw.split(',') if p.strip()]:
+        if _digits(phone) in excluded or phone in excluded:
+            print(f'Skipping excluded SMS number: {phone}')
+            continue
+        entries.append(('Clinical Manager', phone, 'clinical'))
+
+    if not entries:
+        return
+
+    for name, phone, team in entries:
+        normalized = SMSRecipient.normalize_phone(phone)
+        db.session.add(SMSRecipient(name=name, phone=normalized, team=team, active=True))
+        print(f'Seeded SMS recipient: {team} {normalized}')
+    db.session.commit()
+
 
 def initialize_database():
     with app.app_context():
@@ -297,6 +338,10 @@ def initialize_database():
         # Classify any call-outs missing a classification (runs once on first deploy,
         # then no-ops on subsequent restarts since rows already have a value).
         backfill_callout_classifications()
+
+        # Seed SMS recipients from env vars on first deploy of the new system.
+        # After this runs once, managing recipients is done entirely via the /sms-recipients UI.
+        seed_sms_recipients_from_env()
 
         print("Database initialization complete")
 
