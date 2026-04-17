@@ -142,44 +142,73 @@ def migrate_admin_positions():
     db.session.commit()
 
 def seed_sms_recipients_from_env():
-    """On first deploy of the SMS-recipients feature, seed the table from the legacy
-    MANAGER_ADMIN_SMS / MANAGER_CLINICAL_SMS env vars. No-ops once the table has any rows.
-    The number 6465565559 is explicitly excluded."""
-    excluded = {'6465565559', '+16465565559', '16465565559'}
-
-    try:
-        if SMSRecipient.query.count() > 0:
-            return
-    except Exception as e:
-        print(f'Could not check sms_recipients: {e}')
-        return
-
-    admin_raw = os.environ.get('MANAGER_ADMIN_SMS', '')
-    clinical_raw = os.environ.get('MANAGER_CLINICAL_SMS', '')
+    """Seed the SMS recipients table from env vars on first deploy, then
+    run a one-time reconciliation to set the correct state:
+    - Stephen Handzel, Ashley Stark, and Lauryn Padron → team 'both'
+    - Remove 6465565559 and Sukhjeet Dhaliwal entirely."""
+    excluded_digits = {'6465565559'}
 
     def _digits(s):
         return ''.join(ch for ch in (s or '') if ch.isdigit())
 
-    entries = []
-    for phone in [p.strip() for p in admin_raw.split(',') if p.strip()]:
-        if _digits(phone) in excluded or phone in excluded:
-            print(f'Skipping excluded SMS number: {phone}')
-            continue
-        entries.append(('Admin Manager', phone, 'admin'))
-    for phone in [p.strip() for p in clinical_raw.split(',') if p.strip()]:
-        if _digits(phone) in excluded or phone in excluded:
-            print(f'Skipping excluded SMS number: {phone}')
-            continue
-        entries.append(('Clinical Manager', phone, 'clinical'))
-
-    if not entries:
+    try:
+        count = SMSRecipient.query.count()
+    except Exception as e:
+        print(f'Could not check sms_recipients: {e}')
         return
 
-    for name, phone, team in entries:
-        normalized = SMSRecipient.normalize_phone(phone)
-        db.session.add(SMSRecipient(name=name, phone=normalized, team=team, active=True))
-        print(f'Seeded SMS recipient: {team} {normalized}')
-    db.session.commit()
+    # --- First-time seed from env vars ---
+    if count == 0:
+        admin_raw = os.environ.get('MANAGER_ADMIN_SMS', '')
+        clinical_raw = os.environ.get('MANAGER_CLINICAL_SMS', '')
+
+        seen_digits = set()
+        entries = []
+        for phone in [p.strip() for p in admin_raw.split(',') if p.strip()]:
+            d = _digits(phone)
+            if d in excluded_digits or d in seen_digits:
+                continue
+            seen_digits.add(d)
+            entries.append(('Manager', phone, 'both'))
+        for phone in [p.strip() for p in clinical_raw.split(',') if p.strip()]:
+            d = _digits(phone)
+            if d in excluded_digits or d in seen_digits:
+                continue
+            seen_digits.add(d)
+            entries.append(('Manager', phone, 'both'))
+
+        for name, phone, team in entries:
+            normalized = SMSRecipient.normalize_phone(phone)
+            db.session.add(SMSRecipient(name=name, phone=normalized, team=team, active=True))
+            print(f'Seeded SMS recipient: {normalized} (both teams)')
+        db.session.commit()
+
+    # --- Reconciliation (runs every deploy until conditions are met) ---
+    changed = False
+
+    # Remove 6465565559
+    for r in SMSRecipient.query.all():
+        if _digits(r.phone) in excluded_digits:
+            print(f'Removing excluded SMS recipient: {r.phone}')
+            db.session.delete(r)
+            changed = True
+
+    # Remove Sukhjeet
+    for r in SMSRecipient.query.filter(
+        SMSRecipient.name.ilike('%sukhjeet%')
+    ).all():
+        print(f'Removing Sukhjeet: {r.phone}')
+        db.session.delete(r)
+        changed = True
+
+    # Ensure everyone remaining gets both teams
+    for r in SMSRecipient.query.filter(SMSRecipient.team != 'both').all():
+        print(f'Setting {r.name} ({r.phone}) to both teams')
+        r.team = 'both'
+        changed = True
+
+    if changed:
+        db.session.commit()
 
 
 def initialize_database():
